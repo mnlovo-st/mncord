@@ -1,84 +1,50 @@
-# تشغيل سيرفر mncord مجانًا على Oracle Cloud
+# تشغيل سيرفر mncord على كلاودفلير (مجانًا)
 
-الدليل خطوة بخطوة. التكلفة: **صفر**. أي كلمة مرور أو مفتاح تكتبه بنفسك في ملف `.env` على السيرفر،
-ولا ترسله لأحد.
+السيرفر كله على كلاودفلير، والخطة المجانية تكفيه. ما في سيرفر تصونه، وما يحتاج جهازك شغال.
+إذا وصلنا أي حد مجاني، العملية **توقف وما ينخصم شي**.
 
-## 1) سيرفر Oracle المجاني
-
-1. ادخل Oracle Cloud ← **Compute → Instances → Create instance**.
-2. Image: **Ubuntu 24.04**. Shape: **Ampere (VM.Standard.A1.Flex)**، خذ أعلى حد مجاني يسمح به حسابك (مثلًا 2 OCPU و12 GB).
-3. أضف مفتاح SSH (يسويه لك الموقع، احفظ الملف الخاص عندك).
-4. Boot volume: خلّه 100 GB أو أكثر، ضمن الـ200 GB المجانية.
-5. بعد الإنشاء انسخ **Public IP**.
-
-### افتح المنافذ في Oracle (مهم)
-Networking ← Virtual Cloud Networks ← الشبكة ← Security List ← Add Ingress Rules (Source `0.0.0.0/0`). الصوت والفيديو ما يمرون على هذا السيرفر (يمرون على كلاودفلير)، فيكفي:
-
-| البروتوكول | المنفذ | لماذا |
+## الأجزاء
+| الجزء | وش هو | الحد المجاني |
 | --- | --- | --- |
-| TCP | 80, 443 | الموقع وشهادة HTTPS |
-| UDP | 443 | HTTP/3 |
+| Worker | يستقبل الطلبات ويوصلها | 100 ألف طلب باليوم |
+| Durable Object واحد (`MncordHub`) | قاعدة البيانات (SQLite) والاتصال المباشر، قريب من الإمارات | 100 ألف طلب باليوم، 5 GB تخزين |
+| R2 (`mncord-files`) | الصور والمقاطع والملفات | 10 GB، والتنزيل مجاني |
+| Realtime SFU | الصوت والفيديو والبث | 1000 GB بالشهر |
 
-## 2) دومين مجاني (DuckDNS)
+حمايات داخل السيرفر عشان ما نتعدى الحد:
+- **الملفات:** حد الملف 200 MB، والصور والمقاطع تنحذف تلقائيًا بعد 14 يوم (كل يوم الساعة 3:17 فجرًا بتوقيت UTC)، والرفع يوقف عند 9 GB.
+- **البث:** الجودة تنزل خطوة خطوة إذا قرّب استهلاك اليوم من حصته. الفيديو يوقف عند 950 GB والصوت عند 995 GB بالشهر.
 
-1. ادخل duckdns.org بحساب Google الجديد.
-2. أنشئ اسمًا، مثل `mncord`، فيصير عندك `mncord.duckdns.org`.
-3. انسخ **token** من الصفحة. لا تشاركه مع أحد.
+## أول تشغيل (مرة وحدة)
+1. حساب كلاودفلير ← فعّل **Realtime SFU** وأنشئ تطبيق باسم `mncord`، وفعّل **R2**.
+2. من مجلد المشروع:
+   ```powershell
+   cd apps/edge
+   npx wrangler login
+   npx wrangler r2 bucket create mncord-files
+   ```
+3. الأسرار، كل وحدة على حدة. القيم موجودة في `mncord-files\backup\server-production.env`:
+   ```powershell
+   npx wrangler secret put JWT_PRIVATE_JWK
+   npx wrangler secret put SECRETS_KEY
+   npx wrangler secret put FILES_SIGNING_KEY
+   npx wrangler secret put CF_REALTIME_APP_ID
+   npx wrangler secret put CF_REALTIME_APP_SECRET
+   npx wrangler secret put SMTP_URL
+   npx wrangler secret put MAIL_FROM
+   ```
+   ⚠️ لا تغيّر `JWT_PRIVATE_JWK` ولا `SECRETS_KEY` بعد التشغيل. لو تغيروا، الكل يطلع من حسابه، والتحقق بخطوتين يتعطل.
+4. النشر:
+   ```powershell
+   npx wrangler deploy
+   ```
+   السيرفر على: `https://mncord.mncord-edge.workers.dev`، وللفحص افتح `/health`.
 
-## 3) الصوت والفيديو والبث (Cloudflare Realtime، مجاني)
-
-1. سوِّ حسابًا في dash.cloudflare.com (مجاني).
-2. من القائمة: **Realtime ← Serverless SFU ← Create** وسمّه `mncord`.
-3. انسخ **App ID** و **App Token**. الثاني سر: يتحط في `.env` على السيرفر بس، والتطبيق ما يشوفه أبدًا.
-4. الحد المجاني 1000 GB بالشهر. السيرفر يوقف الفيديو والبث تلقائيًا عند 950 GB ويخلي الصوت شغال لين 995 GB، فما ينخصم منك شي.
-5. (اختياري) **Realtime ← TURN ← Create key** للناس اللي شبكاتهم مقيّدة جدًا: انسخ Key ID و API Token.
-
-## 4) الإيميل (رسائل التأكيد واستعادة كلمة المرور)
-
-1. من حساب Google الجديد: **Security ← 2-Step Verification** وفعّله.
-2. ثم **App passwords**: أنشئ واحدًا باسم `mncord`، وانسخ الـ16 حرفًا.
-3. صيغة السطر في `.env`:
-   `SMTP_URL=smtps://العنوان%40gmail.com:كلمة_التطبيق@smtp.gmail.com:465`
-   (الـ`@` داخل الإيميل تُكتب `%40`.) الحد المجاني: حوالي 500 رسالة يوميًا.
-
-## 5) تجهيز السيرفر
-
-ادخل بالـSSH:
-```bash
-ssh -i مفتاحك ubuntu@IP
-git clone https://github.com/mnlovo-st/mncord.git /opt/mncord
-bash /opt/mncord/infra/setup-oracle.sh
-```
-السكربت يحدّث النظام ويثبت Docker ويقفل الجدار الناري ويمنع الدخول بكلمة مرور. اخرج وادخل مرة ثانية بعدها.
-
-## 6) الأسرار والتشغيل
-```bash
-cd /opt/mncord/infra
-cp .env.example .env
-docker run --rm -v "$PWD":/w -w /w node:24-alpine node gen-secrets.mjs >> .env
-nano .env        # عدّل: DOMAIN و CF_REALTIME_APP_ID و CF_REALTIME_APP_SECRET و SMTP_URL و MAIL_FROM و DUCKDNS_TOKEN
-bash update-dns.sh
-docker compose --env-file .env up -d --build
-```
-افتح `https://mncord.duckdns.org/health`. إذا ظهرت `{"ok":true}` فالسيرفر شغال، وشهادة HTTPS تنعمل تلقائيًا.
-
-## 7) النسخ الاحتياطي والتحديث التلقائي للـIP
-```bash
-age-keygen -o ~/backup.key && age-keygen -y ~/backup.key > /opt/mncord/infra/backup.pub
-# انقل ~/backup.key إلى جهازك واحذفه من السيرفر: هو الوحيد اللي يفك النسخ الاحتياطية
-crontab -e
-# 0 4 * * *  /opt/mncord/infra/backup.sh
-# */5 * * * * /opt/mncord/infra/update-dns.sh
-```
-
-## 8) إصدار التطبيق للناس
-
-1. في GitHub ← Settings ← **Variables** أضف:
-   `MNCORD_DOMAIN = mncord.duckdns.org`
-2. سوِّ tag للإصدار: `git tag v1.0.0 && git push --tags`.
-3. GitHub Actions يبني `mncord-Setup-1.0.0.exe` وينشره في **Releases**، والنسخ المثبتة تتحدث تلقائيًا بعدها.
+## التحديثات
+- **السيرفر:** `npm run deploy -w @mncord/edge`
+- **التطبيق:** `git tag v1.0.1` ثم `git push --tags`. GitHub يختبر ويبني ملف التثبيت وينشره في Releases، والنسخ المثبتة تتحدث تلقائيًا.
+- **سجل السيرفر المباشر:** `npx wrangler tail mncord` (من مجلد `apps/edge`)
 
 ## ملاحظات
-- **السعة المجانية:** الرسائل والملفات على Oracle (حوالي 10 TB بالشهر). الصوت والبث على Cloudflare (1000 GB بالشهر). البث ما يُرسَل لأحد إلا لما يضغط «شاهد البث»، عشان نوفّر السعة.
-- **أول تشغيل للتطبيق** يطلع فيه تحذير "ناشر غير معروف" من ويندوز لين نوقّع الملف. التوقيع مجاني عبر SignPath Foundation للمشاريع المفتوحة.
-- **الوضع القانوني:** في الإمارات خدمات الاتصال الصوتي تحتاج ترخيصًا، فاستشر مختصًا قبل طرح التطبيق للعامة.
+- **التحذير عند أول تشغيل:** ويندوز يطلّع تحذير «ناشر غير معروف» لين نوقّع التطبيق. التوقيع مجاني للمشاريع المفتوحة عن طريق SignPath Foundation.
+- **الوضع القانوني:** خدمات الاتصال الصوتي في الإمارات تحتاج ترخيص قبل طرحها للعامة.

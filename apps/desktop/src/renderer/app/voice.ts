@@ -65,10 +65,20 @@ let speakTimer: ReturnType<typeof setInterval> | null = null;
 
 // ── remote audio through Web Audio: gain per user (0–400%) + level meter for speaking rings
 let actx: AudioContext | null = null;
+let master: DynamicsCompressorNode | null = null;
 const remoteAudio = new Map<string, { el: HTMLAudioElement; src: MediaStreamAudioSourceNode; gain: GainNode; meter: AnalyserNode; userId: string }>();
 function audioCtx() {
   if (!actx) {
-    actx = new AudioContext({ latencyHint: 'interactive' });
+    actx = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
+    // gentle leveller on everything you hear: a loud friend and a quiet one end up at a comfortable level,
+    // and sudden peaks (laughs, shouts) are rounded off instead of clipping
+    master = actx.createDynamicsCompressor();
+    master.threshold.value = -26;
+    master.knee.value = 18;
+    master.ratio.value = 3;
+    master.attack.value = 0.006;
+    master.release.value = 0.22;
+    master.connect(actx.destination);
     const out = usePrefs.getState().outputDeviceId;
     if (out !== 'default') void (actx as AudioContext & { setSinkId?(id: string): Promise<void> }).setSinkId?.(out).catch(() => {});
   }
@@ -88,7 +98,7 @@ function playRemote(key: string, userId: string, track: MediaStreamTrack) {
   const meter = ctx.createAnalyser();
   meter.fftSize = 512;
   src.connect(meter);
-  src.connect(gain).connect(ctx.destination);
+  src.connect(gain).connect(master ?? ctx.destination);
   remoteAudio.set(key, { el, src, gain, meter, userId });
   applyUserVolume(userId);
 }
@@ -360,14 +370,25 @@ export const STREAM_PRESETS = {
   '720p30': { width: 1280, height: 720, fps: 30, bitrate: 2_500_000 },
   '1080p30': { width: 1920, height: 1080, fps: 30, bitrate: 4_500_000 },
   '1080p60': { width: 1920, height: 1080, fps: 60, bitrate: 8_000_000 },
-  '1440p60': { width: 2560, height: 1440, fps: 60, bitrate: 14_000_000 },
+  '1440p60': { width: 2560, height: 1440, fps: 60, bitrate: 12_000_000 },
+  '1440p100': { width: 2560, height: 1440, fps: 100, bitrate: 16_000_000 },
 } as const;
+type Preset = keyof typeof STREAM_PRESETS;
+const ORDER: Preset[] = ['1440p100', '1440p60', '1080p60', '1080p30', '720p30'];
+/** the better of two presets is the one earlier in ORDER; the server's cap wins */
+const clampPreset = (want: Preset, cap: string): Preset => {
+  const c = ORDER.indexOf(cap as Preset);
+  return c >= 0 && ORDER.indexOf(want) < c ? (cap as Preset) : want;
+};
 
 export async function startStream(sourceId: string) {
   const e = engine;
   if (!e || !getV().allowed.includes('screen')) return;
   const prefs = usePrefs.getState();
-  const q = STREAM_PRESETS[prefs.streamQuality];
+  // the server steps quality down when today's share of the free allowance is filling up
+  const cap = await api<{ streamCap: string }>('GET', '/voice/stream-cap').then((r) => r.streamCap).catch(() => '1080p60');
+  const preset = clampPreset(prefs.streamQuality as Preset, cap);
+  const q = STREAM_PRESETS[preset];
   await window.mncord?.capture.selectSource(sourceId);
   const media = await navigator.mediaDevices.getDisplayMedia({
     video: { width: { ideal: q.width }, height: { ideal: q.height }, frameRate: { ideal: q.fps, max: q.fps } },

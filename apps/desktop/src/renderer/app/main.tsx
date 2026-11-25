@@ -8,8 +8,8 @@ import { ErrorBoundary } from './ErrorBoundary';
 
 // Development only (stripped from release builds): lets the screenshot QA script drive the UI.
 if (import.meta.env.DEV) {
-  void Promise.all([import('./store'), import('./prefs'), import('./i18n')]).then(([store, prefs, i18n]) => {
-    (window as unknown as { __mncord: unknown }).__mncord = { store: store.useStore, setPrefs: prefs.setPrefs, applyLang: i18n.applyLang };
+  void Promise.all([import('./store'), import('./prefs'), import('./i18n'), import('./api')]).then(([store, prefs, i18n, api]) => {
+    (window as unknown as { __mncord: unknown }).__mncord = { store: store.useStore, setPrefs: prefs.setPrefs, applyLang: i18n.applyLang, uploadFile: api.uploadFile };
   });
 }
 

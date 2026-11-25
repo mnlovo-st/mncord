@@ -1,0 +1,26 @@
+// mncord server on Cloudflare (free plan). Secrets are set with `wrangler secret put` (never committed);
+// local development reads them from .dev.vars (git-ignored, created by scripts/dev-vars.mjs).
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "mncord",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  "durable_objects": {
+    "bindings": [{ "name": "HUB", "class_name": "MncordHub" }]
+  },
+  // Free plan: SQLite-backed Durable Objects only
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MncordHub"] }],
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "mncord-files" }],
+  // daily: delete images/videos older than 14 days, expire stale sessions and codes
+  "triggers": { "crons": ["17 3 * * *"] },
+  "vars": {
+    "PUBLIC_URL": "https://mncord.mncord-edge.workers.dev",
+    "CF_RTC_BASE": "https://rtc.live.cloudflare.com/v1",
+    "MEDIA_TTL_DAYS": "14",
+    "MAX_UPLOAD_MB": "200",
+    "STORAGE_CAP_GB": "9"
+  }
+}

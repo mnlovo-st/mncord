@@ -1,6 +1,6 @@
 # Push a tag like v1.0.0 → builds mncord-Setup-1.0.0.exe and publishes a GitHub Release.
 # Installed apps pick the update up automatically.
-# Optional repository variable MNCORD_DOMAIN (default mncord.duckdns.org)
+# Optional repository variable MNCORD_DOMAIN (default: the Cloudflare Worker, mncord.mncord-edge.workers.dev)
 name: release
 on:
   push:
@@ -19,13 +19,14 @@ jobs:
         env: { ELECTRON_SKIP_BINARY_DOWNLOAD: "1" }
         run: |
           npm run typecheck -w @mncord/desktop
-          npm test -w @mncord/server
+          npm run typecheck -w @mncord/edge
+          npm test -w @mncord/edge
           npm test -w @mncord/desktop
       - name: Production endpoints
         shell: bash
         run: |
           D="${{ vars.MNCORD_DOMAIN }}"
-          D="${D:-mncord.duckdns.org}"
+          D="${D:-mncord.mncord-edge.workers.dev}"
           cat > apps/desktop/.env.production <<EOF
           VITE_MNCORD_API=https://$D
           VITE_MNCORD_CSP_CONNECT=https://$D wss://$D

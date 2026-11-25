@@ -681,7 +681,7 @@ function AvatarUpload() {
   const pick = async (f: File) => {
     setBusy(true);
     try {
-      const a = await uploadFile(f, () => {});
+      const a = await uploadFile(f, () => {}, undefined, 'avatar');
       updateMe(await api<SelfUser>('PATCH', '/users/@me', { avatarFileId: a.id }));
     } finally {
       setBusy(false);

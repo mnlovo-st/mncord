@@ -70,7 +70,66 @@ export async function signOut() {
   onSignedOut();
 }
 
+// ── passwords never leave the device: every request that carries one gets the Argon2id key instead
+let mySalt: { login: string; salt: string } | null = null;
+async function saltFor(login: string) {
+  if (mySalt && mySalt.login === login.toLowerCase()) return mySalt.salt;
+  const r = await rawApi<{ salt: string }>('POST', '/auth/prelogin', { login });
+  return r.salt;
+}
+async function myLogin() {
+  const { get } = await import('./store');
+  const me = get().me;
+  if (!me) throw new ApiError(401, 'unauthorized');
+  return me.username;
+}
+async function securePasswords(path: string, body: unknown): Promise<unknown> {
+  if (!body || typeof body !== 'object') return body;
+  const b = { ...(body as Record<string, unknown>) };
+  const { deriveKey, isBreached, newSalt } = await import('./secure');
+  const fresh = async (pw: string) => {
+    if (pw.length < 8) throw new ApiError(400, 'password_short', 'password');
+    if (await isBreached(pw)) throw new ApiError(400, 'password_breached', 'password');
+    const salt = newSalt();
+    return { key: await deriveKey(pw, salt), salt };
+  };
+  if (path === '/auth/register' || path === '/auth/reset') {
+    if (typeof b.password === 'string') {
+      const f = await fresh(b.password);
+      b.password = f.key;
+      b.salt = f.salt;
+      mySalt = { login: String(b.username ?? b.email ?? '').toLowerCase(), salt: f.salt };
+    }
+    return b;
+  }
+  if (path === '/auth/login') {
+    if (typeof b.password === 'string' && typeof b.login === 'string') {
+      const salt = await saltFor(b.login);
+      b.password = await deriveKey(b.password, salt);
+    }
+    return b;
+  }
+  if (path === '/users/@me/password') {
+    const login = await myLogin();
+    const salt = await saltFor(login);
+    if (typeof b.currentPassword === 'string') b.currentPassword = await deriveKey(b.currentPassword, salt);
+    if (typeof b.newPassword === 'string') {
+      const f = await fresh(b.newPassword);
+      b.newPassword = f.key;
+      b.newSalt = f.salt;
+      mySalt = { login: login.toLowerCase(), salt: f.salt };
+    }
+    return b;
+  }
+  if (typeof b.password === 'string' && b.password) b.password = await deriveKey(b.password, await saltFor(await myLogin()));
+  return b;
+}
+
 export async function api<T>(method: string, path: string, body?: unknown, retry = true): Promise<T> {
+  return rawApi<T>(method, path, path === '/auth/prelogin' ? body : await securePasswords(path, body), retry);
+}
+
+async function rawApi<T>(method: string, path: string, body?: unknown, retry = true): Promise<T> {
   let r: Response;
   try {
     r = await fetch(`${API_BASE}/api/v1${path}`, {
@@ -87,7 +146,7 @@ export async function api<T>(method: string, path: string, body?: unknown, retry
     throw new ApiError(0, 'network');
   }
   if (r.status === 401 && retry && !path.startsWith('/auth/')) {
-    if (await refresh()) return api<T>(method, path, body, false);
+    if (await refresh()) return rawApi<T>(method, path, body, false);
     onSignedOut();
     throw new ApiError(401, 'unauthorized');
   }
@@ -97,33 +156,52 @@ export async function api<T>(method: string, path: string, body?: unknown, retry
   return data as T;
 }
 
-/** Multipart upload with progress (XHR: fetch can't report upload progress). */
-export function uploadFile(file: File, onProgress: (pct: number) => void, signal?: AbortSignal): Promise<import('@mncord/shared').Attachment> {
-  const attempt = (retry: boolean): Promise<import('@mncord/shared').Attachment> =>
-    new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', `${API_BASE}/api/v1/uploads`);
-      if (accessToken) xhr.setRequestHeader('authorization', `Bearer ${accessToken}`);
-      xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(Math.round((e.loaded / e.total) * 100));
-      xhr.onload = async () => {
-        if (xhr.status === 401 && retry && (await refresh())) return resolve(attempt(false));
-        let body: { error?: string } = {};
-        try {
-          body = JSON.parse(xhr.responseText) as { error?: string };
-        } catch {
-          /* empty */
-        }
-        if (xhr.status >= 200 && xhr.status < 300) resolve(body as import('@mncord/shared').Attachment);
-        else reject(new ApiError(xhr.status, body.error ?? (xhr.status === 413 ? 'file_too_large' : 'unknown')));
-      };
-      xhr.onerror = () => reject(new ApiError(0, 'network'));
-      xhr.onabort = () => reject(new ApiError(0, 'aborted'));
-      signal?.addEventListener('abort', () => xhr.abort());
-      const fd = new FormData();
-      fd.append('file', file, file.name);
-      xhr.send(fd);
-    });
-  return attempt(true);
+export const MAX_UPLOAD = 200 * 1024 * 1024;
+export type UploadKind = 'attachment' | 'avatar' | 'icon' | 'emoji' | 'banner';
+
+/** PUT one part with progress (XHR: fetch can't report upload progress). */
+function putPart(url: string, blob: Blob, onBytes: (n: number) => void, signal?: AbortSignal) {
+  return new Promise<{ partNumber: number; etag: string }>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', url);
+    xhr.upload.onprogress = (e) => onBytes(e.loaded);
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText));
+      else reject(new ApiError(xhr.status, 'upload_failed'));
+    };
+    xhr.onerror = () => reject(new ApiError(0, 'network'));
+    xhr.onabort = () => reject(new ApiError(0, 'aborted'));
+    signal?.addEventListener('abort', () => xhr.abort());
+    xhr.send(blob);
+  });
+}
+
+/**
+ * Upload straight into storage: images are resized/re-encoded on the device first (drops EXIF/GPS),
+ * then sent in 50 MB parts with live progress. Up to 200 MB; attachments are kept for 14 days.
+ */
+export async function uploadFile(input: File, onProgress: (pct: number) => void, signal?: AbortSignal, kind: UploadKind = 'attachment'): Promise<import('@mncord/shared').Attachment> {
+  const { prepareImage } = await import('./secure');
+  const { file, width, height } = await prepareImage(input, kind);
+  if (file.size > MAX_UPLOAD) throw new ApiError(413, 'file_too_large');
+  const start = await api<{ id: string; partSize: number; parts: { partNumber: number; url: string }[] }>('POST', '/uploads', {
+    filename: file.name, size: file.size, contentType: file.type || 'application/octet-stream', kind, width, height,
+  });
+  const done: { partNumber: number; etag: string }[] = [];
+  let sent = 0;
+  try {
+    for (const p of start.parts) {
+      const blob = file.slice((p.partNumber - 1) * start.partSize, p.partNumber * start.partSize);
+      done.push(await putPart(p.url, blob, (n) => onProgress(Math.min(99, Math.round(((sent + n) / file.size) * 100))), signal));
+      sent += blob.size;
+    }
+    const a = await api<import('@mncord/shared').Attachment>('POST', `/uploads/${start.id}/complete`, { parts: done });
+    onProgress(100);
+    return a;
+  } catch (e) {
+    void api('POST', `/uploads/${start.id}/abort`, {}).catch(() => {});
+    throw e;
+  }
 }
 
 /** Public URL of a user avatar / server icon (only served once it really is one). */

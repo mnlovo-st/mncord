@@ -89,10 +89,13 @@ export interface Attachment {
   filename: string;
   size: number;
   contentType: string;
-  url: string; // signed, expires in 7 days; refetch the message for a fresh one
+  /** signed, expires in 7 days (refetch the message for a fresh one); null once the file expired */
+  url: string | null;
   width: number | null;
   height: number | null;
   spoiler: boolean;
+  /** images/videos are deleted 14 days after upload; the message keeps this placeholder */
+  expired?: boolean;
 }
 
 export interface ReactionSummary {
@@ -253,5 +256,7 @@ export interface RtcJoin {
   serverDeaf: boolean;
   participants: RtcParticipant[];
   videoAllowed: boolean; // false when the free monthly allowance is nearly used up
+  /** best Go Live quality allowed right now (steps down as today's share of the free allowance fills up) */
+  streamCap: '1440p100' | '1080p60' | '1080p30' | '720p30';
 }
 export interface SessionDescription { type: 'offer' | 'answer'; sdp: string }

@@ -137,7 +137,7 @@ function Overview({ guild }: { guild: Guild }) {
   const uploadIcon = async (f: File) => {
     setIconBusy(true);
     try {
-      const a = await uploadFile(f, () => {});
+      const a = await uploadFile(f, () => {}, undefined, 'icon');
       await api('PATCH', `/guilds/${guild.id}`, { iconFileId: a.id });
     } catch (e) {
       setErr(errorText((e as ApiError).code));
@@ -304,7 +304,7 @@ function Emoji({ guild }: { guild: Guild }) {
     setBusy(true);
     setErr(null);
     try {
-      const a = await uploadFile(f, () => {});
+      const a = await uploadFile(f, () => {}, undefined, 'emoji');
       await api('POST', `/guilds/${guild.id}/emojis`, { name: n.length >= 2 ? n : `emoji_${n}`, fileId: a.id });
       setName('');
     } catch (e) {

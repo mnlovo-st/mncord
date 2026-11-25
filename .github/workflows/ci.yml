@@ -18,12 +18,12 @@ jobs:
       - name: Typecheck
         run: |
           npm run typecheck -w @mncord/shared
-          npm run typecheck -w @mncord/server
           npm run typecheck -w @mncord/desktop
+          npm run typecheck -w @mncord/edge
       - name: Tests (permissions, server end-to-end on embedded Postgres, markdown security)
         run: |
           npm test -w @mncord/shared
-          npm test -w @mncord/server
+          npm test -w @mncord/edge
           npm test -w @mncord/desktop
       - name: Design tokens contrast (WCAG AA)
         run: python3 replica/design/contrast.py replica/design/tokens.json && python3 replica/design/contrast.py replica/design/tokens.light.json && python3 replica/design/contrast.py replica/design/tokens.amoled.json

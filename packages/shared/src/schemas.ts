@@ -8,12 +8,16 @@ export const username = z
   .regex(/^[a-z0-9_.]{2,32}$/, 'username_format');
 
 export const password = z.string().min(8, 'password_short').max(128, 'password_long');
+/** per-account salt for the on-device Argon2id key derivation (base64url) */
+export const salt = z.string().regex(/^[A-Za-z0-9_-]{16,64}$/, 'salt_invalid');
+export const PreloginInput = z.object({ login: z.string().trim().min(1).max(254) });
 
 export const RegisterInput = z.object({
   email: z.string().trim().toLowerCase().email('email_invalid').max(254),
   username,
   displayName: z.string().trim().min(1).max(32).optional(),
   password,
+  salt: salt.optional(),
   dateOfBirth: z.iso.date('dob_invalid'),
   locale: z.enum(['en', 'ar']).default('en'),
   device: z.string().max(64).optional(),
@@ -80,7 +84,7 @@ export function oldEnough(dob: string, now = new Date(), minAge = 13) {
 export const code6 = z.string().trim().regex(/^\d{6}$/, 'code_invalid');
 export const VerifyEmailInput = z.object({ code: code6 });
 export const ForgotInput = z.object({ email: z.string().trim().toLowerCase().email('email_invalid').max(254) });
-export const ResetInput = z.object({ email: z.string().trim().toLowerCase().email('email_invalid').max(254), code: code6, password, device: z.string().max(64).optional() });
+export const ResetInput = z.object({ email: z.string().trim().toLowerCase().email('email_invalid').max(254), code: code6, password, salt: salt.optional(), device: z.string().max(64).optional() });
 /** TOTP (6 digits) or a backup code (xxxx-xxxx) */
 export const mfaCode = z.string().trim().toLowerCase().regex(/^(\d{6}|[a-z0-9]{4}-?[a-z0-9]{4})$/, 'code_invalid');
 export const MfaLoginInput = z.object({ ticket: z.string().min(20).max(1000), code: mfaCode, device: z.string().max(64).optional() });
@@ -99,7 +103,7 @@ export const UpdateProfileInput = z.object({
 });
 export const ChangeUsernameInput = z.object({ username, password: z.string().min(1).max(128) });
 export const ChangeEmailInput = z.object({ email: z.string().trim().toLowerCase().email('email_invalid').max(254), password: z.string().min(1).max(128) });
-export const ChangePasswordInput = z.object({ currentPassword: z.string().min(1).max(128), newPassword: password });
+export const ChangePasswordInput = z.object({ currentPassword: z.string().min(1).max(128), newPassword: password, newSalt: salt.optional() });
 export const DeleteAccountInput = z.object({ password: z.string().min(1).max(128), code: mfaCode.optional() });
 
 // ── M3: social

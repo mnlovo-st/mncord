@@ -77,7 +77,14 @@ export class RtcEngine {
         sessionDescription: this.localDesc(),
         tracks: [{ mid: tr.mid, source }],
       });
-      await this.pc.setRemoteDescription(res.sessionDescription);
+      // Opus tuning lives in the answer's fmtp: our encoder follows what the receiver side asks for.
+      const answer =
+        source === 'mic'
+          ? { ...res.sessionDescription, sdp: tuneOpus(res.sessionDescription.sdp, tr.mid, { usedtx: 1, useinbandfec: 1, stereo: 0, maxaveragebitrate: opts.maxBitrate ?? 96_000 }) }
+          : source === 'screen_audio'
+            ? { ...res.sessionDescription, sdp: tuneOpus(res.sessionDescription.sdp, tr.mid, { useinbandfec: 1, stereo: 1, 'sprop-stereo': 1, maxaveragebitrate: 256_000 }) }
+            : res.sessionDescription;
+      await this.pc.setRemoteDescription(answer);
       // bitrate / framerate caps after negotiation
       if (!opts.simulcast && (opts.maxBitrate || opts.maxFramerate || opts.degradation)) {
         const p = tr.sender.getParameters();
@@ -172,6 +179,55 @@ export class RtcEngine {
     this.pc.close();
     await api('DELETE', `/voice/${this.channelId}/session`).catch(() => {});
   }
+}
+
+/**
+ * Voice: DTX (silence isn't sent: saves bandwidth, no hiss between words), in-band FEC (survives packet
+ * loss without robotic gaps) and the channel's bitrate. Only touches the Opus line of the given m-section.
+ */
+export function tuneOpus(sdp: string, mid: string | null, params: Record<string, number>): string {
+  const lines = sdp.split(/\r?\n/);
+  let inSection = false;
+  let opusPt: string | null = null;
+  let fmtpAt = -1;
+  let rtpmapAt = -1;
+  const sections: { opusPt: string; fmtpAt: number; rtpmapAt: number }[] = [];
+  const flush = () => {
+    if (inSection && opusPt) sections.push({ opusPt, fmtpAt, rtpmapAt });
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i]!;
+    if (l.startsWith('m=')) {
+      flush();
+      inSection = l.startsWith('m=audio');
+      opusPt = null;
+      fmtpAt = -1;
+      rtpmapAt = -1;
+      continue;
+    }
+    if (!inSection) continue;
+    if (l.startsWith('a=mid:') && mid !== null && l.slice(6) !== mid) inSection = false;
+    const rm = /^a=rtpmap:(\d+) opus\/48000/i.exec(l);
+    if (rm) {
+      opusPt = rm[1]!;
+      rtpmapAt = i;
+    }
+    if (opusPt && l.startsWith(`a=fmtp:${opusPt} `)) fmtpAt = i;
+  }
+  flush();
+  const merge = (existing: string) => {
+    const kv = new Map(existing.split(';').filter(Boolean).map((p) => p.split('=') as [string, string]));
+    for (const [k, v] of Object.entries(params)) kv.set(k, String(v));
+    return [...kv].map(([k, v]) => `${k}=${v}`).join(';');
+  };
+  // bottom-up, so earlier line numbers stay valid when a line is inserted
+  for (const s of sections.reverse()) {
+    if (s.fmtpAt >= 0) {
+      const head = `a=fmtp:${s.opusPt} `;
+      lines[s.fmtpAt] = head + merge(lines[s.fmtpAt]!.slice(head.length));
+    } else lines.splice(s.rtpmapAt + 1, 0, `a=fmtp:${s.opusPt} ${merge('')}`);
+  }
+  return lines.join('\r\n');
 }
 
 /** HEVC first (GPU-encoded in Electron, see the M0 spike), then H.264, then whatever else the browser has. */

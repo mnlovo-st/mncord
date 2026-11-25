@@ -18,7 +18,15 @@ app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 app.commandLine.appendSwitch(
   'enable-features',
-  ['WebRtcAllowH265Send', 'WebRtcAllowH265Receive', ...(process.env.MNCORD_SPIKE_FEATURES ?? '').split(',').filter(Boolean)].join(','),
+  [
+    'WebRtcAllowH265Send',
+    'WebRtcAllowH265Receive',
+    // Windows Graphics Capture: GPU-side screen/window capture, needed for Go Live above 60 fps
+    'WebRtcAllowWgcScreenCapturer',
+    'WebRtcAllowWgcWindowCapturer',
+    'WebRtcAllowWgcZeroHz',
+    ...(process.env.MNCORD_SPIKE_FEATURES ?? '').split(',').filter(Boolean),
+  ].join(','),
 );
 app.commandLine.appendSwitch('force_high_performance_gpu');
 if (process.env.MNCORD_SPIKE_DISABLE_FEATURES) app.commandLine.appendSwitch('disable-features', process.env.MNCORD_SPIKE_DISABLE_FEATURES);

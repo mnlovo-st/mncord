@@ -1,6 +1,6 @@
 // Attachments (images, video, audio, files), the image lightbox and the external-link guard.
 import type { Attachment } from '@mncord/shared';
-import { Download, ExternalLink, FileText, X } from 'lucide-react';
+import { Clock, Download, ExternalLink, FileText, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { create } from 'zustand';
@@ -18,10 +18,21 @@ const fmtSize = (n: number) => (n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024
 
 export function Attachments({ items }: { items: Attachment[] }) {
   const { t } = useTranslation();
-  const images = items.filter((a) => a.contentType.startsWith('image/'));
-  const others = items.filter((a) => !a.contentType.startsWith('image/'));
+  const expired = items.filter((a) => a.expired || !a.url);
+  const live = items.filter((a) => !a.expired && a.url) as (Attachment & { url: string })[];
+  const images = live.filter((a) => a.contentType.startsWith('image/'));
+  const others = live.filter((a) => !a.contentType.startsWith('image/'));
   return (
     <div className="mt-1 flex flex-col gap-1">
+      {expired.map((a) => (
+        <div key={a.id} className="flex max-w-[420px] items-center gap-3 rounded-md border border-dashed border-border bg-surface-raised px-3 py-2 text-sm text-muted">
+          <Clock aria-hidden className="size-4 shrink-0 text-faint" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-medium text-text" dir="auto">{a.filename}</span>
+            <span className="text-xs text-faint">{t('msg.expired')}</span>
+          </span>
+        </div>
+      ))}
       {images.length > 0 && (
         <div className={cn('grid max-w-[520px] gap-1', images.length === 1 ? 'grid-cols-1' : images.length === 2 || images.length === 4 ? 'grid-cols-2' : 'grid-cols-3')}>
           {images.map((a) => <ImageAtt key={a.id} a={a} single={images.length === 1} />)}
@@ -64,7 +75,7 @@ function ImageAtt({ a, single }: { a: Attachment; single: boolean }) {
       className={cn('relative overflow-hidden rounded-md bg-surface-raised', single ? 'max-h-[350px] w-fit' : 'aspect-square')}
       style={single ? { aspectRatio: String(ratio), width: Math.min(400, (a.width ?? 400) as number), maxWidth: '100%' } : undefined}
     >
-      <img src={a.url} alt={a.filename} loading="lazy" draggable={false} className={cn('size-full object-cover transition-[filter]', !revealed && 'blur-2xl')} />
+      <img src={a.url ?? undefined} alt={a.filename} loading="lazy" draggable={false} className={cn('size-full object-cover transition-[filter]', !revealed && 'blur-2xl')} />
       {!revealed && <span className="absolute inset-0 grid place-items-center"><span className="rounded-full bg-black/70 px-3 py-1 text-xs font-bold uppercase text-white">SPOILER</span></span>}
     </button>
   );
@@ -81,7 +92,7 @@ export function Lightbox() {
   if (!att) return null;
   return (
     <div role="dialog" aria-label={att.filename} className="anim-fade fixed inset-0 z-50 grid place-items-center bg-black/85 p-10" onClick={() => useLightbox.setState({ att: null })}>
-      <img src={att.url} alt={att.filename} className="anim-pop max-h-full max-w-full rounded-md object-contain" onClick={(e) => e.stopPropagation()} />
+      <img src={att.url ?? undefined} alt={att.filename} className="anim-pop max-h-full max-w-full rounded-md object-contain" onClick={(e) => e.stopPropagation()} />
       <div className="absolute bottom-6 flex items-center gap-4 text-sm">
         <a href={`${att.url}&download=1`} download={att.filename} onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 text-white/80 hover:text-white"><Download className="size-4" />{att.filename}</a>
       </div>
