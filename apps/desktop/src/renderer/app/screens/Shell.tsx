@@ -1,3 +1,4 @@
+import { DevBadge } from '../../ui/DevBadge';
 // App shell: guild rail · channel sidebar · main view · member list
 import type { Channel, Guild, Member } from '@mncord/shared';
 import { LogIn, LogOut, Plus } from 'lucide-react';
@@ -292,6 +293,7 @@ function MemberList({ guild }: { guild: Guild }) {
         <span className="min-w-0 truncate font-medium" style={{ color: m.userId === guild.ownerId ? 'var(--c-accent-text)' : 'var(--c-text-muted)' }}>
           {m.nick ?? m.user.displayName ?? m.user.username}
         </span>
+        <DevBadge flags={m.user.flags} />
       </div>
     </li>
   );

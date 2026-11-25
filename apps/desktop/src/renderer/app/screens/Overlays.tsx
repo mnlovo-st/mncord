@@ -1,3 +1,4 @@
+import { DevBadge } from '../../ui/DevBadge';
 // S17 profile card (opens where you clicked) · S36 incoming call
 import type { FullProfile } from '@mncord/shared';
 import { Ban, MessageCircle, Phone, PhoneOff, UserCheck, UserPlus } from 'lucide-react';
@@ -68,7 +69,7 @@ export function ProfileCard() {
           <div className="h-24 animate-pulse rounded-md bg-surface-raised" />
         ) : (
           <>
-            <h3 className="font-display text-lg font-bold leading-tight" dir="auto">{p.displayName ?? p.username}</h3>
+            <h3 className="flex items-center gap-2 font-display text-lg font-bold leading-tight" dir="auto">{p.displayName ?? p.username}<DevBadge flags={p.flags} size="md" /></h3>
             <p className="text-sm text-muted">@{p.username}{p.pronouns ? ` · ${p.pronouns}` : ''}</p>
             <div className="mt-3 rounded-md bg-bg-deep/60 p-3 text-sm">
               {p.bio && (

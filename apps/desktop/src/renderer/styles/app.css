@@ -150,3 +150,21 @@
 html[data-titlebar='true'] { --titlebar-h: 32px; }
 html[data-titlebar='true'] #root { padding-top: var(--titlebar-h); box-sizing: border-box; }
 html[data-titlebar='true'] .fixed.inset-0 { top: var(--titlebar-h); }
+
+/* DEV badge: deep violet gradient, inner highlight, soft glow, a slow light sweep */
+.dev-badge {
+  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 45%, #5b21b6 100%);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.18) inset, 0 1px 0 rgb(255 255 255 / 0.25) inset, 0 0 12px rgb(139 92 246 / 0.55);
+  text-shadow: 0 1px 1px rgb(46 16 101 / 0.6);
+}
+.dev-badge::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.45) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: dev-shine 3.6s ease-in-out infinite;
+}
+@keyframes dev-shine { 0%, 55% { transform: translateX(-120%); } 85%, 100% { transform: translateX(120%); } }
+@media (prefers-reduced-motion: reduce) { .dev-badge::after { animation: none; display: none; } }
+[data-reduced-motion='true'] .dev-badge::after { animation: none; display: none; }

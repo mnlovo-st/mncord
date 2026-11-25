@@ -1,3 +1,4 @@
+import { DevBadge } from '../../ui/DevBadge';
 // S10 text channel / DM: history paging, new-messages divider, read acks, actions (react, reply, edit, pin,
 // copy, delete), inline edit, drag-and-drop uploads, markdown, attachments.
 import { has, P, type Channel, type Guild, type Message as Msg } from '@mncord/shared';
@@ -300,6 +301,7 @@ export function ChatView({ guild, channel, headerExtra }: { guild?: Guild; chann
               <Message
                 author={m.author?.displayName ?? m.author?.username ?? 'Deleted user'}
                 authorColor={guild && m.author?.id === guild.ownerId ? 'var(--c-accent-text)' : undefined}
+                authorBadge={<DevBadge flags={m.author?.flags} />}
                 onAuthorClick={m.author ? (e) => openProfile(m.author!.id, e) : undefined}
                 avatarSrc={avatarUrl(m.author?.avatarKey)}
                 time={fmt(m.createdAt)}

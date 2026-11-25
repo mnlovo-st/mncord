@@ -7,7 +7,10 @@ export interface User {
   avatarKey: string | null;
   avatarUrl?: string | null;
   status: 'online' | 'idle' | 'dnd' | 'invisible';
+  /** badges: bit 1 = Dev (mncord developer) */
+  flags?: number;
 }
+export const USER_FLAG_DEV = 1;
 export interface SelfUser extends User {
   /** profile banner image (public picture id) */
   bannerKey?: string | null;

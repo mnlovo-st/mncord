@@ -1,3 +1,4 @@
+import { DevBadge } from '../../ui/DevBadge';
 // Settings → Profiles: everything people see on your profile card, with a live preview.
 import type { SelfUser } from '@mncord/shared';
 import { ImagePlus, Trash2 } from 'lucide-react';
@@ -125,7 +126,7 @@ export function ProfileTab() {
               <div className="-mt-10 mb-2 w-fit rounded-full border-[6px] border-popover">
                 <Avatar name={p.displayName || me.username} src={avatarUrl(me.avatarKey)} size={80} status="online" cutout="border-popover" />
               </div>
-              <p className="font-display text-lg font-bold" dir="auto">{p.displayName || me.username}</p>
+              <p className="flex items-center gap-2 font-display text-lg font-bold" dir="auto">{p.displayName || me.username}<DevBadge flags={me.flags} size="md" /></p>
               <p className="text-sm text-muted">@{me.username}{p.pronouns ? ` · ${p.pronouns}` : ''}</p>
               {p.status && <p className="mt-2 text-sm" dir="auto">{p.status}</p>}
               {p.bio && (

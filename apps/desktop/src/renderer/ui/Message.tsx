@@ -8,12 +8,14 @@ export interface Reaction { emoji: string; count: number; me?: boolean }
 export interface MessageAction { key: string; icon: ReactNode; label: string; onClick: (e: React.MouseEvent) => void; danger?: boolean }
 
 export function Message({
-  author, authorColor, time, children, grouped, highlighted, state = 'sent', reactions, reply, compact, edited, onAuthorClick,
+  author, authorColor, authorBadge, time, children, grouped, highlighted, state = 'sent', reactions, reply, compact, edited, onAuthorClick,
   actions, onReactionClick, onReplyClick, editing, flash, renderEmoji = (e: string) => e, avatarSrc,
   labels = { failed: 'Message failed to send.', edited: '(edited)', toolbar: 'Message actions' },
 }: {
   author: string;
   authorColor?: string;
+  /** shown right after the name (e.g. the DEV badge) */
+  authorBadge?: React.ReactNode;
   time: string;
   children: ReactNode;
   grouped?: boolean;
@@ -63,6 +65,7 @@ export function Message({
       {!grouped && !compact && (
         <h3 className="flex items-baseline gap-2">
           <button type="button" onClick={onAuthorClick} className="cursor-pointer font-medium hover:underline" style={{ color: authorColor ?? 'var(--c-text)' }}>{author}</button>
+          {authorBadge && <span className="self-center">{authorBadge}</span>}
           <time className="text-xs font-medium text-faint">{time}</time>
         </h3>
       )}

@@ -283,7 +283,7 @@ export function socialRoutes(app: App, db: Db, hub: Hub) {
   app.get('/users/:id/profile', async (req): Promise<FullProfile> => {
     if (!/^[0-9a-f-]{36}$/.test(req.params.id)) throw notFound();
     const { rows } = await db.query<FullProfile & { createdAt: Date }>(
-      `select u.id, u.username::text as username, u.display_name as "displayName", u.avatar_key as "avatarKey", u.status,
+      `select u.id, u.username::text as username, u.display_name as "displayName", u.avatar_key as "avatarKey", u.status, u.flags,
               u.bio, u.pronouns, u.accent_color as "accentColor", u.banner_key as "bannerKey", u.created_at as "createdAt"
          from users u where u.id = $1 and u.disabled_at is null`,
       [req.params.id],
@@ -298,7 +298,7 @@ export function socialRoutes(app: App, db: Db, hub: Hub) {
       [req.userId, req.params.id],
     );
     const mutualFriends = await db.query<{ id: string; username: string; displayName: string | null; avatarKey: string | null; status: 'online' }>(
-      `select u.id, u.username::text as username, u.display_name as "displayName", u.avatar_key as "avatarKey", u.status
+      `select u.id, u.username::text as username, u.display_name as "displayName", u.avatar_key as "avatarKey", u.status, u.flags
          from relationships a join relationships b on a.target_id = b.target_id join users u on u.id = a.target_id
         where a.user_id = $1 and b.user_id = $2 and a.type = 'friend' and b.type = 'friend' limit 50`,
       [req.userId, req.params.id],
@@ -313,6 +313,8 @@ export function socialRoutes(app: App, db: Db, hub: Hub) {
       bio: u.bio,
       pronouns: u.pronouns,
       accentColor: u.accentColor,
+      bannerKey: u.bannerKey ?? null,
+      flags: u.flags ?? 0,
       createdAt: new Date(u.createdAt).toISOString(),
       mutualGuilds: req.params.id === req.userId ? [] : mutualGuilds.rows,
       mutualFriends: req.params.id === req.userId ? [] : mutualFriends.rows,

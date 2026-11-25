@@ -70,6 +70,20 @@ describe('Cloudflare edition', () => {
     await fetch(`${base}/__dev/usage`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ bytes: 0, dayBytes: 0 }) });
   });
 
+  it('Dev badge: only the mnlovo account carries it, everywhere its name shows', async () => {
+    const r = await api<AuthTokens>('POST', '/auth/register', { email: 'mn@example.test', username: 'mnlovo', password: 'k'.repeat(43), dateOfBirth: '1995-01-01' });
+    // a fresh database gets the flag from the upgrade step; set it the same way here
+    await db.query(`update users set flags = flags | 1 where lower(username) = 'mnlovo'`);
+    const me = await api<{ flags: number }>('GET', '/users/@me', undefined, r.body.accessToken);
+    expect(me.body.flags & 1).toBe(1);
+    const meId = (await api<{ id: string }>('GET', '/users/@me', undefined, r.body.accessToken)).body.id;
+    const prof = await api<{ flags: number; bannerKey: string | null }>('GET', `/users/${meId}/profile`, undefined, t);
+    expect(prof.body.flags & 1).toBe(1); // the profile card shows it too
+    expect('bannerKey' in prof.body).toBe(true);
+    const m = await api<Message>('POST', `/channels/${channel}/messages`, { content: 'hi' }, t);
+    expect(m.body.author?.flags ?? 0).toBe(0); // sara is not a dev
+  });
+
   it('never passes the free 10 GB: uploads are refused near the 9 GB cap', async () => {
     await db.query(`insert into files (owner_id, key, kind, content_type, size_bytes, status) values ((select id from users limit 1), 'f/filler', 'attachment', 'video/mp4', $1, 'ready')`, [9 * 1024 ** 3 - 1000]);
     const r = await upload(base, t, 'a.mp4', new Uint8Array(5000), 'video/mp4');
