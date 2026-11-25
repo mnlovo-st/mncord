@@ -75,9 +75,9 @@ const TYPES: { id: 'text' | 'voice' | 'announcement'; icon: typeof Hash }[] = [
   { id: 'announcement', icon: Megaphone },
 ];
 
-export function CreateChannelModal({ guild, category, kind, onClose }: { guild: Guild; category: Channel | null; kind: 'channel' | 'category'; onClose: () => void }) {
+export function CreateChannelModal({ guild, category, kind, initialType, onClose }: { guild: Guild; category: Channel | null; kind: 'channel' | 'category'; initialType?: 'text' | 'voice'; onClose: () => void }) {
   const { t } = useTranslation();
-  const [type, setType] = useState<'text' | 'voice' | 'announcement'>('text');
+  const [type, setType] = useState<'text' | 'voice' | 'announcement'>(initialType ?? 'text');
   const [name, setName] = useState('');
   const [priv, setPriv] = useState(false);
   const [err, setErr] = useState<string | null>(null);

@@ -1,7 +1,7 @@
 // Gateway client: identify, heartbeat, reconnect with backoff + jitter, dispatch into the store.
 import { CLOSE, type ClientFrame, type ServerFrame } from '@mncord/shared';
 import { API_BASE, getAccessToken, refresh } from './api';
-import { bumpLastMessage, dropMessage, get, patchMessage, putMessage, removeGuild, set, upsertGuild } from './store';
+import { bumpLastMessage, dropMessage, get, patchMessage, putMessage, rememberUsers, removeGuild, set, upsertGuild } from './store';
 import { playSound } from './sounds';
 
 let ws: WebSocket | null = null;
@@ -81,8 +81,7 @@ function handle(f: Extract<ServerFrame, { op: 'dispatch' }>) {
   switch (f.t) {
     case 'READY': {
       attempts = 0;
-      if (!readyOnce) playSound('startup');
-      else if (get().connection === 'reconnecting') playSound('reconnect');
+      if (readyOnce && get().connection === 'reconnecting') playSound('reconnect');
       readyOnce = true;
       const guilds: Record<string, (typeof f.d.guilds)[number]> = {};
       for (const g of f.d.guilds) guilds[g.id] = g;
@@ -95,7 +94,11 @@ function handle(f: Extract<ServerFrame, { op: 'dispatch' }>) {
       const calls: Record<string, (typeof f.d.calls)[number]> = {};
       for (const c of f.d.calls ?? []) calls[c.channelId] = c;
       const presence: Record<string, 'online' | 'idle' | 'dnd' | 'offline'> = {};
-      for (const p of f.d.presences ?? []) presence[p.userId] = p.status;
+      const activities: Record<string, import('@mncord/shared').Activity> = {};
+      for (const p of f.d.presences ?? []) {
+        presence[p.userId] = p.status;
+        if (p.activity) activities[p.userId] = p.activity;
+      }
       const readStates: Record<string, (typeof f.d.readStates)[number]> = {};
       for (const r of f.d.readStates ?? []) readStates[r.channelId] = r;
       const names: Record<string, string> = {};
@@ -109,6 +112,7 @@ function handle(f: Extract<ServerFrame, { op: 'dispatch' }>) {
         privateChannels,
         calls,
         presence,
+        activities,
         guilds,
         guildOrder: f.d.guilds.map((g) => g.id),
         voice,
@@ -116,7 +120,9 @@ function handle(f: Extract<ServerFrame, { op: 'dispatch' }>) {
         loaded: {}, // refetch history after a reconnect so nothing is missed
         names: { ...s.names, ...names, [f.d.user.id]: f.d.user.displayName ?? f.d.user.username },
       }));
+      rememberUsers([f.d.user, ...(f.d.relationships ?? []).map((r) => r.user), ...(f.d.privateChannels ?? []).flatMap((p) => p.recipients)]);
       void import('./notify').then((n) => n.loadNotificationSettings());
+      void import('./activity').then((m) => m.resendActivity());
       break;
     }
     case 'GUILD_CREATE':
@@ -179,7 +185,26 @@ function handle(f: Extract<ServerFrame, { op: 'dispatch' }>) {
       });
       break;
     case 'PRESENCE_UPDATE':
-      set((s) => ({ presence: { ...s.presence, [f.d.userId]: f.d.status } }));
+      set((s) => {
+        const activities = { ...s.activities };
+        if (f.d.activity && f.d.status !== 'offline') activities[f.d.userId] = f.d.activity;
+        else delete activities[f.d.userId];
+        return { presence: { ...s.presence, [f.d.userId]: f.d.status }, activities };
+      });
+      break;
+    case 'USER_UPDATE': {
+      rememberUsers([f.d]);
+      const me = get().me;
+      if (me && f.d.id === me.id) set({ me: { ...me, ...f.d } });
+      // keep friend / DM lists in step
+      set((s) => ({
+        relationships: s.relationships[f.d.id] ? { ...s.relationships, [f.d.id]: { ...s.relationships[f.d.id]!, user: { ...s.relationships[f.d.id]!.user, ...f.d } } } : s.relationships,
+        privateChannels: Object.fromEntries(Object.entries(s.privateChannels).map(([k, p]) => [k, p.recipients.some((u) => u.id === f.d.id) ? { ...p, recipients: p.recipients.map((u) => (u.id === f.d.id ? { ...u, ...f.d } : u)) } : p])),
+      }));
+      break;
+    }
+    case 'VOICE_MOVE':
+      void import('./voice').then((v) => v.onVoiceMove(f.d));
       break;
     case 'APPROVAL_REQUEST' as never:
       void import('./screens/Approvals').then((m) => m.onApprovalRequest((f as unknown as { d: { username: string; displayName: string | null } }).d));
@@ -226,9 +251,11 @@ function handle(f: Extract<ServerFrame, { op: 'dispatch' }>) {
       void import('./voice').then((v) => v.onRtcForce(f.d));
       break;
     case 'GUILD_MEMBER_UPDATE':
+      rememberUsers([f.d.user]);
       set((s) => ({ names: { ...s.names, [f.d.userId]: f.d.nick ?? f.d.user.displayName ?? f.d.user.username } }));
       break;
     case 'GUILD_MEMBER_ADD':
+      rememberUsers([f.d.user]);
       set((s) => ({ names: { ...s.names, [f.d.userId]: f.d.user.displayName ?? f.d.user.username } }));
       break;
     default:

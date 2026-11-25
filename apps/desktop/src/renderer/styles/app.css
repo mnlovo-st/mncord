@@ -143,6 +143,12 @@
   .anim-pop { animation: pop-in var(--motion-base) var(--motion-spring) both; }
   .anim-fade { animation: fade-in var(--motion-base) var(--motion-ease) both; }
   .anim-slide-up { animation: slide-up var(--motion-base) var(--motion-ease) both; }
+  /* Radix keeps closing popups mounted until an exit animation ends. With only an entry animation the
+     tooltip/menu stayed on screen in its "closed" state (the stuck labels), so every popup gets a short exit. */
+  @keyframes pop-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(.97); } }
+  @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+  .anim-pop[data-state='closed'] { animation: pop-out 90ms ease-in both; pointer-events: none; }
+  .anim-fade[data-state='closed'] { animation: fade-out 90ms ease-in both; pointer-events: none; }
 }
 
 /* Windows: our own 32 px title bar sits above everything; full-screen layers start below it */
@@ -168,3 +174,62 @@ html[data-titlebar='true'] .fixed.inset-0 { top: var(--titlebar-h); }
 @keyframes dev-shine { 0%, 55% { transform: translateX(-120%); } 85%, 100% { transform: translateX(120%); } }
 @media (prefers-reduced-motion: reduce) { .dev-badge::after { animation: none; display: none; } }
 [data-reduced-motion='true'] .dev-badge::after { animation: none; display: none; }
+
+/* ── Free cosmetics ───────────────────────────────────────────────────────── */
+/* avatar decorations: a ring painted with a mask so only the band shows */
+.deco { padding: var(--deco-w, 3px); -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
+.deco-glow { background: var(--c-accent); box-shadow: 0 0 14px 2px var(--c-accent); animation: deco-pulse 2.4s ease-in-out infinite; -webkit-mask: none; mask: none; background: transparent; border: var(--deco-w) solid var(--c-accent); }
+.deco-rainbow { background: conic-gradient(#ff4d6d, #ffb703, #3ddc97, #4cc9f0, #8b5cf6, #ff4d6d); animation: deco-spin 4s linear infinite; }
+.deco-gold { background: conic-gradient(#fff3b0, #d4a017, #8a6100, #f9d976, #b8860b, #fff3b0); animation: deco-spin 7s linear infinite; }
+.deco-neon { background: conic-gradient(#00f0ff, #ff00e6, #00f0ff); filter: drop-shadow(0 0 6px #00f0ff) drop-shadow(0 0 6px #ff00e6); animation: deco-spin 3s linear infinite; }
+.deco-fire { background: conic-gradient(from 180deg, #ff3d00, #ffb300, #ff6d00, #ffd54f, #ff3d00); filter: drop-shadow(0 0 6px #ff6d00); animation: deco-spin 2.2s linear infinite, deco-flicker 0.9s ease-in-out infinite alternate; }
+.deco-frost { background: conic-gradient(#e0f7ff, #7dd3fc, #ffffff, #38bdf8, #e0f7ff); filter: drop-shadow(0 0 5px #7dd3fc); animation: deco-spin 8s linear infinite; }
+.deco-galaxy { background: conic-gradient(#1e1b4b, #7c3aed, #ec4899, #312e81, #06b6d4, #1e1b4b); filter: drop-shadow(0 0 6px #7c3aed); animation: deco-spin 5s linear infinite; }
+@keyframes deco-spin { to { transform: rotate(360deg); } }
+@keyframes deco-pulse { 50% { box-shadow: 0 0 22px 5px var(--c-accent); } }
+@keyframes deco-flicker { to { opacity: .82; } }
+
+/* name styles: animated gradient text */
+.name-styled { background-size: 200% auto; -webkit-background-clip: text; background-clip: text; color: transparent !important; animation: name-flow 4s linear infinite; }
+.name-aurora { background-image: linear-gradient(90deg, #6ee7b7, #60a5fa, #a78bfa, #6ee7b7); }
+.name-sunset { background-image: linear-gradient(90deg, #f97316, #ec4899, #facc15, #f97316); }
+.name-gold { background-image: linear-gradient(90deg, #fff3b0, #d4a017, #fff8dc, #b8860b, #fff3b0); }
+.name-neon { background-image: linear-gradient(90deg, #00f0ff, #ff00e6, #00f0ff); filter: drop-shadow(0 0 4px rgb(0 240 255 / .55)); }
+.name-ocean { background-image: linear-gradient(90deg, #22d3ee, #3b82f6, #14b8a6, #22d3ee); }
+.name-candy { background-image: linear-gradient(90deg, #f472b6, #c084fc, #fda4af, #f472b6); }
+.name-chrome { background-image: linear-gradient(180deg, #ffffff 0%, #c9d3e3 45%, #6f7d96 55%, #e8edf6 100%); background-size: auto; animation: none; }
+@keyframes name-flow { to { background-position: 200% center; } }
+
+/* nameplates: a soft gradient behind your row in member lists */
+.plate { position: relative; isolation: isolate; }
+.plate::before { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; opacity: .55; background-size: 200% 100%; animation: plate-flow 8s ease-in-out infinite alternate; }
+.plate-aurora::before { background-image: linear-gradient(90deg, transparent 0%, rgb(110 231 183 / .35) 40%, rgb(167 139 250 / .45) 100%); }
+.plate-sunset::before { background-image: linear-gradient(90deg, transparent 0%, rgb(249 115 22 / .35) 45%, rgb(236 72 153 / .45) 100%); }
+.plate-ocean::before { background-image: linear-gradient(90deg, transparent 0%, rgb(34 211 238 / .3) 45%, rgb(59 130 246 / .45) 100%); }
+.plate-ember::before { background-image: linear-gradient(90deg, transparent 0%, rgb(255 61 0 / .3) 45%, rgb(255 179 0 / .4) 100%); }
+.plate-galaxy::before { background-image: linear-gradient(90deg, transparent 0%, rgb(124 58 237 / .4) 45%, rgb(6 182 212 / .35) 100%); }
+.plate-forest::before { background-image: linear-gradient(90deg, transparent 0%, rgb(34 197 94 / .3) 45%, rgb(20 184 166 / .4) 100%); }
+@keyframes plate-flow { to { background-position: 100% 0; } }
+
+/* profile effects: 14 particles (<i>) per card */
+.fx i { position: absolute; display: block; left: calc(var(--i) * 7.3% + 2%); top: -12%; opacity: 0; animation: fx-fall calc(5s + var(--i) * .37s) linear calc(var(--i) * -.61s) infinite; }
+.fx-sparkles i { width: 6px; height: 6px; background: #fff; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); filter: drop-shadow(0 0 3px #fff); animation-name: fx-twinkle; top: calc(var(--i) * 6.7%); }
+.fx-snow i { width: 6px; height: 6px; border-radius: 50%; background: rgb(255 255 255 / .9); }
+.fx-hearts i { width: 9px; height: 9px; background: #ff4d8d; transform: rotate(45deg); }
+.fx-hearts i::before, .fx-hearts i::after { content: ''; position: absolute; width: 9px; height: 9px; border-radius: 50%; background: inherit; }
+.fx-hearts i::before { left: -4.5px; } .fx-hearts i::after { top: -4.5px; }
+.fx-embers i { width: 4px; height: 4px; border-radius: 50%; background: #ffb300; box-shadow: 0 0 6px #ff6d00; top: 105%; animation-name: fx-rise; }
+.fx-stars i { width: 3px; height: 3px; border-radius: 50%; background: #fff; box-shadow: 0 0 4px #c4b5fd; animation-name: fx-twinkle; top: calc(var(--i) * 6.9%); }
+.fx-aurora { background: linear-gradient(120deg, rgb(110 231 183 / .0), rgb(110 231 183 / .25), rgb(167 139 250 / .3), rgb(96 165 250 / .0)); background-size: 300% 300%; animation: fx-aurora 7s ease-in-out infinite alternate; mix-blend-mode: screen; }
+.fx-aurora i { display: none; }
+@keyframes fx-fall { 0% { transform: translateY(0) translateX(0); opacity: 0; } 10% { opacity: .9; } 100% { transform: translateY(520px) translateX(18px); opacity: 0; } }
+@keyframes fx-rise { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-460px) translateX(-14px); opacity: 0; } }
+@keyframes fx-twinkle { 0%, 100% { opacity: 0; transform: scale(.4); } 50% { opacity: 1; transform: scale(1); } }
+@keyframes fx-aurora { to { background-position: 100% 50%; } }
+[data-reduced-motion='true'] .deco, [data-reduced-motion='true'] .name-styled, [data-reduced-motion='true'] .plate::before, [data-reduced-motion='true'] .fx, [data-reduced-motion='true'] .fx i { animation: none !important; }
+
+/* welcome: the first time an approved account opens the app */
+@keyframes welcome-in { 0% { opacity: 0; transform: scale(1.08); filter: blur(14px) brightness(1.6); } 60% { opacity: 1; filter: blur(0) brightness(1.15); } 100% { opacity: 1; transform: none; filter: none; } }
+@keyframes welcome-veil { 0% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+.welcome-enter { animation: welcome-in 1.4s cubic-bezier(.2,.8,.2,1) both; }
+.welcome-veil { animation: welcome-veil 1.2s ease-out .15s both; }

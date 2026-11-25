@@ -101,6 +101,12 @@ export const UpdateProfileInput = z.object({
   avatarFileId: z.uuid().nullable().optional(),
   bannerFileId: z.uuid().nullable().optional(),
   customStatus: z.object({ text: z.string().trim().max(128), emoji: z.string().max(64).nullable().optional(), expiresAt: z.iso.datetime().nullable().optional() }).nullable().optional(),
+  style: z.object({
+    decoration: z.string().regex(/^[a-z0-9-]{1,32}$/).nullable().optional(),
+    effect: z.string().regex(/^[a-z0-9-]{1,32}$/).nullable().optional(),
+    nameStyle: z.string().regex(/^[a-z0-9-]{1,32}$/).nullable().optional(),
+    nameplate: z.string().regex(/^[a-z0-9-]{1,32}$/).nullable().optional(),
+  }).nullable().optional(),
 });
 export const ChangeUsernameInput = z.object({ username, password: z.string().min(1).max(128) });
 export const ChangeEmailInput = z.object({ email: z.string().trim().toLowerCase().email('email_invalid').max(254), password: z.string().min(1).max(128) });
@@ -135,6 +141,8 @@ export const UpdateMemberInput = z.object({
   timeoutUntil: z.iso.datetime().nullable().optional(),
   serverMute: z.boolean().optional(),
   serverDeaf: z.boolean().optional(),
+  /** move them to another voice channel, or null to disconnect them (Move Members) */
+  voiceChannelId: z.uuid().nullable().optional(),
   reason: z.string().max(512).optional(),
 });
 export const BanInput = z.object({ reason: z.string().max(512).optional(), deleteMessageSeconds: z.number().int().min(0).max(7 * 86400).default(0) });

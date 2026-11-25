@@ -1,12 +1,12 @@
 // S24 user settings (full screen) · S25 voice settings
 import { ApprovalsTab, usePending } from './Approvals';
-import { ProfileTab } from './ProfileTab';
+import { ProfileTab, usePictureUpload } from './ProfileTab';
 import type { SelfUser, SessionInfo } from '@mncord/shared';
-import { Check, Copy, KeyRound, LogOut, Monitor, ShieldCheck, Smartphone, X } from 'lucide-react';
+import { Bell, Check, ChevronRight, Copy, Crown, Gamepad2, Globe, Laptop, LogOut, Mic, Monitor, Palette, Search, ShieldCheck, Smartphone, Sparkles, Trash2, User, UserCog, X } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { createMicChain, createRawMic, DEFAULT_MIC, type MicChain, type Suppression } from '../../media/micChain';
+import { createMicChain, createRawMic, DEFAULT_MIC, withDefaults, type MicChain, type Suppression } from '../../media/micChain';
 import { Avatar } from '../../ui/Avatar';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
@@ -14,67 +14,89 @@ import { Modal } from '../../ui/Modal';
 import { Slider } from '../../ui/Slider';
 import { Switch } from '../../ui/Switch';
 import { cn } from '../../ui/cn';
-import { api, ApiError, avatarUrl, signOut, uploadFile } from '../api';
+import { api, ApiError, avatarUrl, signOut } from '../api';
 import { applyLang, errorText } from '../i18n';
 import { setPrefs, usePrefs } from '../prefs';
 import { set, useStore } from '../store';
 import { setSuppression } from '../voice';
+import { currentGame, KNOWN_GAMES } from '../activity';
+import { playSound, SOUND_NAMES, type SoundName } from '../sounds';
+import { inputProfileOf, setInputProfile, type InputProfile } from './AudioMenus';
 
-type Tab = 'account' | 'profile' | 'security' | 'devices' | 'appearance' | 'language' | 'voice' | 'windows' | 'approvals';
+export type Tab = 'account' | 'profile' | 'security' | 'devices' | 'appearance' | 'language' | 'voice' | 'notifications' | 'windows' | 'activity' | 'games' | 'approvals';
 
-export function SettingsScreen({ onClose }: { onClose: () => void }) {
+export function SettingsScreen({ onClose, initialTab = 'account' }: { onClose: () => void; initialTab?: Tab }) {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>('account');
-  const isOwner = useStore((s) => !!s.me?.isOwner);
+  const [tab, setTab] = useState<Tab>(initialTab);
+  const [q, setQ] = useState('');
+  const me = useStore((s) => s.me);
+  const isOwner = !!me?.isOwner;
   const pending = usePending((s) => s.count);
+  const [version, setVersion] = useState('');
+  useEffect(() => void window.mncord?.app?.version().then(setVersion), []);
+  useEffect(() => setTab(initialTab), [initialTab]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !document.querySelector('[role=dialog][data-state=open], [role=alertdialog]') && onClose(); // our own full-screen panel is a dialog too: only a modal on top of it blocks Esc
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const nav: [string, [Tab, string][]][] = [
-    [t('settings.user'), [['account', t('settings.account')], ['profile', t('profileEdit.title')], ['security', t('settings.security')], ['devices', t('settings.devices')]]],
-    [t('settings.app'), [['appearance', t('settings.appearance')], ['voice', t('settings.voice')], ['language', t('settings.language')], ['windows', t('win.title')]]],
-    ...(isOwner ? ([[t('approvals.group'), [['approvals', pending ? `${t('approvals.title')} (${pending})` : t('approvals.title')]]]] as [string, [Tab, string][]][]) : []),
+  const I = (C: typeof User) => <C aria-hidden className="size-[18px] shrink-0" />;
+  const nav: [string, [Tab, string, ReactNode][]][] = [
+    [t('settings.user'), [['account', t('settings.account'), I(User)], ['profile', t('profileEdit.title'), I(UserCog)], ['security', t('settings.security'), I(ShieldCheck)], ['devices', t('settings.devices'), I(Laptop)]]],
+    [t('settings.app'), [['voice', t('settings.voice'), I(Mic)], ['notifications', t('settings.notifications'), I(Bell)], ['appearance', t('settings.appearance'), I(Palette)], ['language', t('settings.language'), I(Globe)], ['windows', t('win.title'), I(Monitor)]]],
+    [t('settings.activityGroup'), [['activity', t('settings.activityPrivacy'), I(Sparkles)], ['games', t('settings.games'), I(Gamepad2)]]],
+    ...(isOwner ? ([[t('approvals.group'), [['approvals', pending ? `${t('approvals.title')} (${pending})` : t('approvals.title'), I(Crown)]]]] as [string, [Tab, string, ReactNode][]][]) : []),
   ];
+  const filtered = q.trim() ? nav.map(([g, items]) => [g, items.filter(([, label]) => label.toLowerCase().includes(q.trim().toLowerCase()))] as [string, [Tab, string, ReactNode][]]).filter(([, items]) => items.length) : nav;
 
   return (
     <div role="dialog" aria-modal="true" aria-label={t('settings.title')} className="anim-fade fixed inset-0 z-40 flex bg-bg">
-      <nav className="flex w-[min(320px,35vw)] shrink-0 justify-end overflow-y-auto bg-surface py-14 pe-2">
-        <div className="w-[218px]">
-          {nav.map(([group, items]) => (
-            <div key={group} className="mb-4">
-              <h2 className="px-2.5 pb-1.5 text-2xs font-bold uppercase tracking-wide text-faint">{group}</h2>
-              {items.map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setTab(id)}
-                  aria-current={tab === id ? 'page' : undefined}
-                  className={cn('mb-0.5 block w-full rounded-sm px-2.5 py-1.5 text-start text-base font-medium', tab === id ? 'bg-surface-selected text-text' : 'text-muted hover:bg-surface-hover hover:text-text')}
-                >
-                  {label}
+      <nav className="flex w-[min(320px,35vw)] shrink-0 justify-end overflow-y-auto bg-surface pb-6 pt-8 pe-2">
+        <div className="flex w-[232px] flex-col">
+          {me && (
+            <button type="button" onClick={() => setTab('profile')} className="mb-3 flex items-center gap-3 rounded-md p-2 text-start hover:bg-surface-hover">
+              <Avatar name={me.displayName ?? me.username} src={avatarUrl(me.avatarKey)} size={40} decoration={me.style?.decoration} />
+              <span className="min-w-0">
+                <span className="block truncate font-display font-bold">{me.displayName ?? me.username}</span>
+                <span className="block text-xs text-muted">{t('settings.editProfiles')} ✎</span>
+              </span>
+            </button>
+          )}
+          <label className="mb-3 flex h-9 items-center gap-2 rounded-md border border-border bg-bg-deep/60 px-2.5 text-muted focus-within:border-focus">
+            <Search aria-hidden className="size-4" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('settings.search')} aria-label={t('settings.search')} className="min-w-0 flex-1 bg-transparent text-sm text-text outline-none placeholder:text-faint" />
+          </label>
+          {filtered.map(([group, items]) => (
+            <div key={group} className="mb-3 border-b border-border pb-3 last:border-0">
+              <h2 className="px-2.5 pb-1.5 text-xs font-semibold text-faint">{group}</h2>
+              {items.map(([id, label, icon]) => (
+                <button key={id} type="button" onClick={() => setTab(id)} aria-current={tab === id ? 'page' : undefined}
+                  className={cn('mb-0.5 flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-start text-[15px] font-medium transition-colors', tab === id ? 'bg-surface-selected text-text' : 'text-muted hover:bg-surface-hover hover:text-text')}>
+                  {icon}{label}
                 </button>
               ))}
             </div>
           ))}
-          <div className="my-2 h-px bg-border" />
-          <button type="button" onClick={() => void signOut()} className="flex w-full items-center justify-between rounded-sm px-2.5 py-1.5 text-start font-medium text-danger-text hover:bg-surface-hover">
-            {t('settings.logout')} <LogOut className="size-4 rtl:-scale-x-100" />
+          <button type="button" onClick={() => void signOut()} className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-start text-[15px] font-medium text-danger-text hover:bg-surface-hover">
+            <LogOut className="size-[18px] rtl:-scale-x-100" /> {t('settings.logout')}
           </button>
+          <p className="mt-4 px-2.5 text-2xs leading-relaxed text-faint">mncord {version ? `v${version}` : ''} · Windows<br />© mnlovo</p>
         </div>
       </nav>
       <div className="relative min-w-0 flex-1 overflow-y-auto px-10 py-14">
         <div className="max-w-[740px]">
-          {tab === 'account' && <AccountTab />}
+          {tab === 'account' && <AccountTab go={setTab} />}
           {tab === 'profile' && <ProfileTab />}
           {tab === 'security' && <SecurityTab />}
           {tab === 'devices' && <DevicesTab />}
           {tab === 'appearance' && <AppearanceTab />}
           {tab === 'language' && <LanguageTab />}
           {tab === 'voice' && <VoiceTab />}
+          {tab === 'notifications' && <NotificationsTab />}
           {tab === 'windows' && <WindowsTab />}
+          {tab === 'activity' && <ActivityTab />}
+          {tab === 'games' && <GamesTab />}
           {tab === 'approvals' && <ApprovalsTab />}
         </div>
         <button type="button" onClick={onClose} aria-label={t('settings.close')} className="fixed end-10 top-14 flex flex-col items-center gap-1 text-faint hover:text-text">
@@ -96,83 +118,72 @@ const Section = ({ title, children }: { title?: string; children: ReactNode }) =
 const updateMe = (me: SelfUser | null) => me && set({ me });
 
 // ── My account
-function AccountTab() {
+function AccountTab({ go }: { go: (t: Tab) => void }) {
   const { t } = useTranslation();
   const me = useStore((s) => s.me)!;
-  const [p, setP] = useState({ displayName: me.displayName ?? '', bio: me.bio ?? '', pronouns: me.pronouns ?? '' });
-  const [saved, setSaved] = useState(false);
-  const [err, setErr] = useState<string>();
   const [edit, setEdit] = useState<'username' | 'email' | 'password' | 'verify' | null>(null);
-  const dirty = p.displayName !== (me.displayName ?? '') || p.bio !== (me.bio ?? '') || p.pronouns !== (me.pronouns ?? '');
+  const [reveal, setReveal] = useState(false);
+  const [mfa, setMfa] = useState<boolean | null>(null);
+  const [devices, setDevices] = useState<number | null>(null);
+  useEffect(() => {
+    void api<{ enabled: boolean }>('GET', '/users/@me/mfa').then((r) => setMfa(r.enabled)).catch(() => {});
+    void api<SessionInfo[]>('GET', '/users/@me/sessions').then((r) => setDevices(r.length)).catch(() => {});
+  }, []);
+  const masked = me.email.replace(/^(.)(.*)(@.*)$/, (_m, a: string, b: string, c: string) => `${a}${'*'.repeat(Math.max(4, b.length))}${c}`);
 
-  const save = async () => {
-    setErr(undefined);
-    try {
-      updateMe(await api<SelfUser>('PATCH', '/users/@me', { displayName: p.displayName.trim() || null, bio: p.bio || null, pronouns: p.pronouns || null }));
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch (e) {
-      setErr(errorText((e as ApiError).code));
-    }
-  };
-
-  const Row = ({ label, value, onEdit, extra }: { label: string; value: string; onEdit: () => void; extra?: ReactNode }) => (
-    <div className="flex items-center justify-between gap-4 py-3">
-      <div className="min-w-0">
-        <p className="text-2xs font-bold uppercase tracking-wide text-muted">{label}</p>
-        <p className="truncate text-text" dir="auto">{value} {extra}</p>
+  const Row = ({ label, value, onEdit, extra, chevron, onClick }: { label: string; value?: ReactNode; onEdit?: () => void; extra?: ReactNode; chevron?: boolean; onClick?: () => void }) => (
+    <div className={cn('flex min-h-14 items-center justify-between gap-4 py-2', onClick && 'cursor-pointer')} onClick={onClick}>
+      <p className="font-medium text-text">{label}</p>
+      <div className="flex min-w-0 items-center gap-3">
+        {value !== undefined && <span className="truncate text-muted" dir="auto">{value}</span>}
+        {extra}
+        {onEdit && <Button variant="secondary" size="sm" className="min-w-[72px] justify-center" onClick={onEdit}>{t('settings.edit')}</Button>}
+        {chevron && <ChevronRight className="size-5 text-muted rtl:-scale-x-100" />}
       </div>
-      <Button variant="secondary" size="sm" onClick={onEdit}>{t('settings.edit')}</Button>
     </div>
   );
 
   return (
     <>
       <H>{t('settings.account')}</H>
-      <div className="mb-8 overflow-hidden rounded-lg bg-surface">
-        <div className="h-24 bg-[linear-gradient(120deg,color-mix(in_srgb,var(--c-accent)_55%,#000),color-mix(in_srgb,var(--c-text-link)_45%,#000))]" />
+      <div className="mb-8 overflow-hidden rounded-xl bg-surface">
+        <div className="h-24 bg-cover bg-center" style={me.bannerKey ? { backgroundImage: `url(${avatarUrl(me.bannerKey)})` } : { background: me.accentColor != null ? `#${me.accentColor.toString(16).padStart(6, '0')}` : 'linear-gradient(120deg,color-mix(in srgb,var(--c-accent) 55%,#000),color-mix(in srgb,var(--c-text-link) 45%,#000))' }} />
         <div className="flex items-end gap-4 px-4 pb-4">
           <AvatarUpload />
-          <div className="pb-1">
-            <p className="font-display text-lg font-semibold">{me.displayName ?? me.username}</p>
-            <p className="text-sm text-muted">@{me.username}</p>
+          <div className="min-w-0 flex-1 pb-1">
+            <p className="truncate font-display text-xl font-bold">{me.displayName ?? me.username}</p>
+            <p className="text-sm text-muted">{me.username}</p>
           </div>
-        </div>
-        <div className="mx-4 mb-4 divide-y divide-border rounded-md bg-bg-deep/50 px-4">
-          <Row label={t('settings.username')} value={me.username} onEdit={() => setEdit('username')} />
-          <Row
-            label={t('settings.email')}
-            value={me.email}
-            onEdit={() => setEdit('email')}
-            extra={
-              me.emailVerified ? (
-                <span className="ms-2 text-xs font-semibold text-success">✓ {t('settings.verified')}</span>
-              ) : (
-                <button type="button" onClick={() => setEdit('verify')} className="ms-2 text-xs font-semibold text-warning hover:underline">{t('settings.unverified')}</button>
-              )
-            }
-          />
+          <Button size="sm" className="mb-1" onClick={() => go('profile')}>{t('settings.editProfile')}</Button>
         </div>
       </div>
 
-      <Section title={t('settings.profile')}>
-        <div className="grid gap-4">
-          <Input label={t('settings.displayName')} value={p.displayName} maxLength={32} onChange={(e) => setP({ ...p, displayName: e.target.value })} />
-          <Input label={t('settings.pronouns')} value={p.pronouns} maxLength={40} onChange={(e) => setP({ ...p, pronouns: e.target.value })} />
-          <label className="flex flex-col gap-2">
-            <span className="text-2xs font-bold uppercase tracking-wide text-muted">{t('settings.bio')}</span>
-            <textarea value={p.bio} maxLength={400} dir="auto" rows={3} onChange={(e) => setP({ ...p, bio: e.target.value })} className="resize-none rounded-sm border border-border-input bg-surface-input p-3 text-text outline-none focus-visible:border-focus" />
-          </label>
-          {err && <p role="alert" className="text-sm text-danger-text">{err}</p>}
-          <div className="flex justify-end gap-2">
-            <Button disabled={!dirty} onClick={() => void save()} icon={saved ? <Check className="size-4" /> : undefined}>{saved ? t('settings.saved') : t('settings.save')}</Button>
-          </div>
-        </div>
-      </Section>
+      <h2 className="mb-1 font-display text-lg font-semibold">{t('settings.accountInfo')}</h2>
+      <div className="mb-8 divide-y divide-border">
+        <Row label={t('settings.username')} value={me.username} onEdit={() => setEdit('username')} />
+        <Row label={t('settings.email')} value={reveal ? me.email : masked} onEdit={() => setEdit('email')}
+          extra={<>
+            <button type="button" onClick={() => setReveal((r) => !r)} className="text-sm font-medium text-link hover:underline">{reveal ? t('settings.hide') : t('settings.reveal')}</button>
+            {me.emailVerified ? <span className="text-xs font-semibold text-success">✓ {t('settings.verified')}</span> : <button type="button" onClick={() => setEdit('verify')} className="text-xs font-semibold text-warning hover:underline">{t('settings.unverified')}</button>}
+          </>} />
+      </div>
 
-      <Section title={t('settings.changePassword')}>
-        <Button variant="secondary" icon={<KeyRound className="size-4" />} onClick={() => setEdit('password')}>{t('settings.changePassword')}</Button>
-      </Section>
+      <h2 className="mb-1 font-display text-lg font-semibold">{t('settings.passwordSecurity')}</h2>
+      <div className="mb-8 divide-y divide-border">
+        <Row label={t('settings.password')} onEdit={() => setEdit('password')} />
+        <Row label={t('settings.mfaTitle')} value={mfa === null ? '…' : mfa ? t('settings.enabled') : t('settings.disabled')} chevron onClick={() => go('security')} />
+        <Row label={t('settings.devices')} value={devices === null ? '…' : t('settings.devicesCount', { count: devices })} chevron onClick={() => go('devices')} />
+      </div>
+
+      <h2 className="mb-3 font-display text-lg font-semibold">{t('settings.accountStatus')}</h2>
+      <div className="mb-8 flex items-center gap-4 rounded-xl bg-surface p-4">
+        <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-success/15 text-success"><Check className="size-6" strokeWidth={3} /></span>
+        <div className="min-w-0 flex-1">
+          <p className="font-medium">{t('settings.standing')}</p>
+          <p className="text-sm text-muted">{t('settings.standingSub')}</p>
+        </div>
+        <span className="font-semibold text-text">{t('settings.allGood')}</span>
+      </div>
 
       <EditModal kind={edit} onClose={() => setEdit(null)} />
     </>
@@ -531,10 +542,10 @@ function VoiceTab() {
       const raw = await navigator.mediaDevices.getUserMedia({
         audio: p.rawMic
           ? { deviceId: p.inputDeviceId !== 'default' ? { ideal: p.inputDeviceId } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false, sampleRate: 48000 }
-          : { deviceId: p.inputDeviceId !== 'default' ? { ideal: p.inputDeviceId } : undefined, echoCancellation: true, noiseSuppression: false, autoGainControl: false, sampleRate: 48000 },
+          : { deviceId: p.inputDeviceId !== 'default' ? { ideal: p.inputDeviceId } : undefined, echoCancellation: p.echoCancellation, noiseSuppression: false, autoGainControl: p.autoGain, channelCount: 1, sampleRate: 48000 },
       });
       if (!live) return raw.getTracks().forEach((x) => x.stop());
-      chain.current = p.rawMic ? await createRawMic(raw) : await createMicChain(raw, { ...DEFAULT_MIC, ...p.mic, suppression: p.suppression });
+      chain.current = p.rawMic ? await createRawMic(raw) : await createMicChain(raw, withDefaults(p.mic, p.suppression));
       chain.current.setMonitoring(monitor);
       const tick = () => {
         if (chain.current) setLevel(Math.max(0, Math.min(100, ((chain.current.levelDb() + 70) / 70) * 100)));
@@ -552,12 +563,12 @@ function VoiceTab() {
       setLevel(0);
     };
     // restart the test when the device or suppression changes
-  }, [testing, p.inputDeviceId, p.suppression]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [testing, p.inputDeviceId, p.suppression, p.rawMic, p.echoCancellation, p.autoGain]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // live-apply processing changes to the running test
   const micJson = JSON.stringify(p.mic);
   useEffect(() => {
-    void chain.current?.update({ ...DEFAULT_MIC, ...p.mic, suppression: p.suppression });
+    void chain.current?.update(withDefaults(p.mic, p.suppression));
   }, [micJson]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => chain.current?.setMonitoring(monitor), [monitor]);
@@ -583,15 +594,48 @@ function VoiceTab() {
           {select('audiooutput', p.outputDeviceId, (v) => setPrefs({ outputDeviceId: v }), t('settings.outputDevice'))}
         </div>
       </Section>
+      <Section title={t('am.inputProfile')}>
+        <div role="radiogroup" className="grid gap-2 sm:grid-cols-3">
+          {(['isolation', 'studio', 'custom'] as InputProfile[]).map((x) => {
+            const on = inputProfileOf(p) === x;
+            return (
+              <button key={x} type="button" role="radio" aria-checked={on} onClick={() => setInputProfile(x)}
+                className={cn('rounded-lg border p-3 text-start transition-colors', on ? 'border-accent bg-mention' : 'border-border bg-surface hover:bg-surface-hover')}>
+                <span className="block font-semibold">{t(`am.profile.${x}`)}</span>
+                <span className="mt-1 block text-xs text-muted">{t(`am.profile.${x}Sub`)}</span>
+              </button>
+            );
+          })}
+        </div>
+      </Section>
+      <Section title={t('settings.volumes')}>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Slider label={t('am.inputVolume')} value={Math.round(10 ** ((p.mic.inputGainDb ?? 0) / 20) * 100)} min={0} max={200} step={5} format={(v) => `${v}%`}
+            onValueChange={(v) => setPrefs({ mic: { ...p.mic, inputGainDb: v <= 0 ? -60 : Math.round(20 * Math.log10(v / 100) * 10) / 10 } })} />
+          <Slider label={t('am.outputVolume')} value={p.outputVolume} min={0} max={200} step={5} format={(v) => `${v}%`} onValueChange={(v) => setPrefs({ outputVolume: v })} />
+        </div>
+      </Section>
       <Section title={t('settings.suppression')}>
-        <div role="radiogroup" className="flex flex-col gap-2">
-          {(['gtcrn', 'rnnoise', 'off'] as Suppression[]).map((s) => (
-            <button key={s} type="button" role="radio" aria-checked={p.suppression === s} onClick={() => void setSuppression(s)}
-              className={cn('flex h-12 items-center gap-3 rounded-md border px-4 text-start font-medium', p.suppression === s ? 'border-accent bg-mention' : 'border-border bg-surface hover:bg-surface-hover')}>
-              <span className={cn('size-4 rounded-full border-2', p.suppression === s ? 'border-accent bg-accent' : 'border-border-input')} />
-              {t(`settings.${s === 'gtcrn' ? 'ai' : s}`)}
+        <div role="radiogroup" className={cn('flex flex-col gap-2', p.rawMic && 'pointer-events-none opacity-40')}>
+          {(['rnnoise', 'gtcrn', 'max', 'off'] as Suppression[]).map((x) => (
+            <button key={x} type="button" role="radio" aria-checked={p.suppression === x} onClick={() => void setSuppression(x)}
+              className={cn('flex items-center gap-3 rounded-lg border px-4 py-3 text-start', p.suppression === x ? (x === 'max' ? 'border-warning bg-warning/10' : 'border-accent bg-mention') : 'border-border bg-surface hover:bg-surface-hover')}>
+              <span className={cn('size-4 shrink-0 rounded-full border-2', p.suppression === x ? (x === 'max' ? 'border-warning bg-warning' : 'border-accent bg-accent') : 'border-border-input')} />
+              <span className="min-w-0">
+                <span className="block font-medium">{t(`settings.sup.${x}`)}</span>
+                <span className="block text-xs text-muted">{t(`settings.sup.${x}Sub`)}</span>
+              </span>
             </button>
           ))}
+        </div>
+        {p.suppression === 'max' && !p.rawMic && (
+          <div role="alert" className="mt-3 flex gap-3 rounded-lg border border-warning/50 bg-warning/10 p-3 text-sm">
+            <span aria-hidden className="text-lg leading-none">⚠️</span>
+            <p><b className="text-warning">{t('settings.sup.maxWarnTitle')}</b><br /><span className="text-muted">{t('settings.sup.maxWarn')}</span></p>
+          </div>
+        )}
+        <div className={cn('mt-4', p.rawMic && 'pointer-events-none opacity-40')}>
+          <Switch label={t('vs.loudProtect')} description={t('vs.loudProtectSub')} checked={p.mic.loudProtect ?? true} onCheckedChange={(v) => setPrefs({ mic: { ...p.mic, loudProtect: v } })} />
         </div>
       </Section>
       <Section title={t('vs.inputMode')}>
@@ -610,7 +654,7 @@ function VoiceTab() {
         ) : (
           <>
             <Slider label={t('vs.sensitivity')} value={p.mic.gate?.openDb ?? DEFAULT_MIC.gate.openDb} min={-90} max={-10} format={(v) => `${v} dB`} level={testing ? level : undefined}
-              onValueChange={(v) => setPrefs({ mic: { ...p.mic, gate: { ...DEFAULT_MIC.gate, ...p.mic.gate, enabled: true, openDb: v, closeDb: v - 6 } } })} />
+              onValueChange={(v) => setPrefs({ mic: { ...p.mic, gate: { ...DEFAULT_MIC.gate, ...p.mic.gate, enabled: true, openDb: v, closeDb: v - 10 } } })} />
             <p className="mt-1 text-xs text-faint">{t('vs.sensitivitySub')}</p>
           </>
         )}
@@ -626,6 +670,7 @@ function VoiceTab() {
           <Switch label={t('vs.highpass')} checked={(p.mic.highpassHz ?? DEFAULT_MIC.highpassHz) > 0} onCheckedChange={(v) => setPrefs({ mic: { ...p.mic, highpassHz: v ? 80 : 0 } })} />
           <Switch label={t('vs.compressor')} checked={p.mic.compressor?.enabled ?? DEFAULT_MIC.compressor.enabled} onCheckedChange={(v) => setPrefs({ mic: { ...p.mic, compressor: { ...DEFAULT_MIC.compressor, ...p.mic.compressor, enabled: v } } })} />
           <Switch label={t('vs.limiter')} checked={p.mic.limiter?.enabled ?? DEFAULT_MIC.limiter.enabled} onCheckedChange={(v) => setPrefs({ mic: { ...p.mic, limiter: { ...DEFAULT_MIC.limiter, ...p.mic.limiter, enabled: v } } })} />
+          <Switch label={t('vs.gate')} description={t('vs.gateSub')} checked={p.mic.gate?.enabled ?? DEFAULT_MIC.gate.enabled} onCheckedChange={(v) => setPrefs({ mic: { ...p.mic, gate: { ...DEFAULT_MIC.gate, ...p.mic.gate, enabled: v } } })} />
           </div>
           {(['lowDb', 'midDb', 'highDb'] as const).map((k) => (
             <Slider key={k} label={t(`vs.eq${k === 'lowDb' ? 'Low' : k === 'midDb' ? 'Mid' : 'High'}`)} value={p.mic.eq?.[k] ?? DEFAULT_MIC.eq[k]} min={-12} max={12} step={0.5} format={(v) => `${v > 0 ? '+' : ''}${v} dB`}
@@ -690,24 +735,16 @@ function PttRecorder() {
 function AvatarUpload() {
   const { t } = useTranslation();
   const me = useStore((s) => s.me)!;
-  const [busy, setBusy] = useState(false);
   const file = useRef<HTMLInputElement>(null);
-  const pick = async (f: File) => {
-    setBusy(true);
-    try {
-      const a = await uploadFile(f, () => {}, undefined, 'avatar');
-      updateMe(await api<SelfUser>('PATCH', '/users/@me', { avatarFileId: a.id }));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const pics = usePictureUpload(() => {});
   return (
     <div className="relative -mt-10 rounded-full border-[6px] border-surface">
       <button type="button" aria-label={t('settings.changeAvatar')} onClick={() => file.current?.click()} className="group relative block rounded-full">
-        <Avatar name={me.displayName ?? me.username} src={avatarUrl(me.avatarKey)} size={80} />
-        <span className="absolute inset-0 grid place-items-center rounded-full bg-black/60 text-center text-2xs font-bold uppercase text-white opacity-0 transition-opacity group-hover:opacity-100">{busy ? '…' : t('settings.changeAvatar')}</span>
+        <Avatar name={me.displayName ?? me.username} src={avatarUrl(me.avatarKey)} size={80} decoration={me.style?.decoration} />
+        <span className="absolute inset-0 grid place-items-center rounded-full bg-black/60 text-center text-2xs font-bold uppercase text-white opacity-0 transition-opacity group-hover:opacity-100">{pics.busy ? '…' : t('settings.changeAvatar')}</span>
       </button>
-      <input ref={file} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={(e) => e.target.files?.[0] && void pick(e.target.files[0])} />
+      <input ref={file} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={(e) => { pics.pick('avatar', e.target.files?.[0]); e.target.value = ''; }} />
+      {pics.cropper}
     </div>
   );
 }
@@ -725,10 +762,127 @@ function WindowsTab() {
           <Switch label={t('win.autostart')} description={t('win.autostartSub')} checked={auto} disabled={!window.mncord}
             onCheckedChange={(v) => { setAuto(v); void window.mncord?.window.setAutostart(v); }} />
           <Switch label={t('win.tray')} description={t('win.traySub')} checked={p.closeToTray} onCheckedChange={(v) => setPrefs({ closeToTray: v })} />
-          <Switch label={t('win.notifications')} description={t('win.notificationsSub')} checked={p.notifications}
-            onCheckedChange={(v) => { setPrefs({ notifications: v }); if (v && typeof Notification !== 'undefined') void Notification.requestPermission(); }} />
         </div>
       </Section>
+    </>
+  );
+}
+
+// ── Notifications: desktop notifications + app sounds (volume and each sound on/off)
+function NotificationsTab() {
+  const { t } = useTranslation();
+  const p = usePrefs();
+  const toggle = (n: SoundName, on: boolean) => setPrefs({ mutedSounds: on ? p.mutedSounds.filter((x) => x !== n) : [...p.mutedSounds, n] });
+  return (
+    <>
+      <H>{t('settings.notifications')}</H>
+      <Section>
+        <Switch label={t('win.notifications')} description={t('win.notificationsSub')} checked={p.notifications}
+          onCheckedChange={(v) => { setPrefs({ notifications: v }); if (v && typeof Notification !== 'undefined') void Notification.requestPermission(); }} />
+      </Section>
+      <Section title={t('sounds.title')}>
+        <Slider label={t('sounds.volume')} value={p.soundVolume} min={0} max={100} step={5} format={(v) => `${v}%`} onValueChange={(v) => setPrefs({ soundVolume: v })} />
+        <p className="mb-4 mt-1 text-xs text-faint">{t('sounds.volumeSub')}</p>
+        <div className="divide-y divide-border rounded-lg bg-surface px-4">
+          {SOUND_NAMES.map((n) => (
+            <div key={n} className="flex items-center justify-between gap-3 py-2.5">
+              <button type="button" onClick={() => playSound(n)} className="shrink-0 text-sm font-medium text-link hover:underline">{t('sounds.preview')}</button>
+              <div className="flex-1"><Switch label={t(`sounds.n.${n}`)} checked={!p.mutedSounds.includes(n)} onCheckedChange={(on) => toggle(n, on)} /></div>
+            </div>
+          ))}
+        </div>
+      </Section>
+    </>
+  );
+}
+
+// ── Activity Privacy: share "Playing …" with friends and servers
+function ActivityTab() {
+  const { t } = useTranslation();
+  const p = usePrefs();
+  return (
+    <>
+      <H>{t('settings.activityPrivacy')}</H>
+      <Section>
+        <Switch label={t('activity.share')} description={t('activity.shareSub')} checked={p.shareActivity} onCheckedChange={(v) => setPrefs({ shareActivity: v })} />
+      </Section>
+      <p className="text-sm text-faint">{t('activity.privacyNote')}</p>
+    </>
+  );
+}
+
+// ── Registered Games: what we detect, plus your own additions
+function GamesTab() {
+  const { t } = useTranslation();
+  const p = usePrefs();
+  const [running, setRunning] = useState<string[]>([]);
+  const [pick, setPick] = useState('');
+  const [name, setName] = useState('');
+  const [now, setNow] = useState(currentGame());
+  useEffect(() => {
+    const load = () => {
+      void window.mncord?.games?.running().then((r) => setRunning(r.filter((x) => x.endsWith('.exe')).sort()));
+      setNow(currentGame());
+    };
+    load();
+    const id = setInterval(load, 5000);
+    return () => clearInterval(id);
+  }, []);
+  const add = () => {
+    if (!pick || !name.trim()) return;
+    setPrefs({ customGames: { ...p.customGames, [pick]: name.trim().slice(0, 64) }, hiddenGames: p.hiddenGames.filter((x) => x !== pick) });
+    setPick('');
+    setName('');
+  };
+  const remove = (exe: string) => {
+    const next = { ...p.customGames };
+    delete next[exe];
+    setPrefs({ customGames: next });
+  };
+  return (
+    <>
+      <H>{t('settings.games')}</H>
+      <div className={cn('mb-6 flex items-center gap-4 rounded-xl p-4', now ? 'bg-success/10' : 'bg-surface')}>
+        <span className={cn('grid size-12 place-items-center rounded-lg', now ? 'bg-success/20 text-success' : 'bg-surface-raised text-faint')}><Gamepad2 className="size-6" /></span>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">{now ? now.name : t('games.none')}</p>
+          <p className="text-sm text-muted">{now ? t('games.playingNow') : t('games.noneSub')}</p>
+        </div>
+        {now && <Button size="sm" variant="ghost" onClick={() => setPrefs({ hiddenGames: [...p.hiddenGames, now.exe] })}>{t('games.hide')}</Button>}
+      </div>
+      <Section title={t('games.add')}>
+        <p className="mb-3 text-sm text-muted">{t('games.addSub')}</p>
+        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+          <select value={pick} onChange={(e) => { setPick(e.target.value); setName(KNOWN_GAMES[e.target.value] ?? e.target.value.replace(/\.exe$/, '')); }} aria-label={t('games.program')} className="h-10 rounded-sm border border-border-input bg-surface-input px-3 text-text">
+            <option value="">{t('games.program')}</option>
+            {running.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={64} placeholder={t('games.name')} aria-label={t('games.name')} dir="auto" className="h-10 rounded-sm border border-border-input bg-surface-input px-3 text-text outline-none focus:border-focus" />
+          <Button disabled={!pick || !name.trim()} onClick={add}>{t('games.addBtn')}</Button>
+        </div>
+      </Section>
+      {Object.keys(p.customGames).length > 0 && (
+        <Section title={t('games.yours')}>
+          <ul className="divide-y divide-border rounded-lg bg-surface px-4">
+            {Object.entries(p.customGames).map(([exe, n]) => (
+              <li key={exe} className="flex items-center justify-between gap-3 py-2.5">
+                <span className="min-w-0"><span className="block font-medium" dir="auto">{n}</span><span className="block text-xs text-faint">{exe}</span></span>
+                <button type="button" aria-label={t('common.delete')} onClick={() => remove(exe)} className="text-faint hover:text-danger-text"><Trash2 className="size-4" /></button>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+      {p.hiddenGames.length > 0 && (
+        <Section title={t('games.hidden')}>
+          <div className="flex flex-wrap gap-2">
+            {p.hiddenGames.map((exe) => (
+              <button key={exe} type="button" onClick={() => setPrefs({ hiddenGames: p.hiddenGames.filter((x) => x !== exe) })} className="rounded-full bg-surface px-3 py-1 text-sm text-muted hover:text-text">{KNOWN_GAMES[exe] ?? exe} ✕</button>
+            ))}
+          </div>
+        </Section>
+      )}
+      <p className="text-xs text-faint">{t('games.knownCount', { count: Object.keys(KNOWN_GAMES).length })}</p>
     </>
   );
 }

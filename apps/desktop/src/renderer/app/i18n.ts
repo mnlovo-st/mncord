@@ -1,5 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import { AR_EXTRA, EN_EXTRA, mergeInto } from './i18n-extra';
 
 // All copy is written fresh for mncord. Arabic is Modern Standard Arabic.
 const en = {
@@ -31,7 +32,7 @@ const en = {
     noSend: 'You don’t have permission to send messages here.', loading: 'Loading messages…', today: 'Today at {{time}}', edited: '(edited)',
   },
   voice: {
-    join: 'Join voice', connected: 'Voice connected', connecting: 'Connecting…', leave: 'Disconnect', mute: 'Mute', unmute: 'Unmute', deafen: 'Deafen', undeafen: 'Undeafen',
+    join: 'Join voice', connected: 'Voice Connected', connecting: 'Connecting…', leave: 'Disconnect', mute: 'Mute', unmute: 'Unmute', deafen: 'Deafen', undeafen: 'Undeafen',
     noise: 'AI noise suppression', empty: 'No one is here yet.', alone: 'You are the only one here. Invite a friend!', settings: 'User settings',
   },
   createGuild: {
@@ -46,7 +47,7 @@ const en = {
   ctx: { markRead: 'Mark as read', muteServer: 'Mute server', muteChannel: 'Mute channel', copyId: 'Copy ID' },
   live: {
     goLive: 'Go Live', stop: 'Stop streaming', camera: 'Turn on camera', cameraOff: 'Turn off camera', screens: 'Screens', windows: 'Applications', quality: 'Stream quality', audio: 'Share sound',
-    hq: 'Up to 1440p 60 fps through the app. 4K and 120+ fps arrive with the mncord-capture helper.', watch: 'Watch stream', fullscreen: 'Full screen', exitFullscreen: 'Exit full screen', zoomHint: 'Scroll to zoom, drag to move', resetZoom: 'Reset zoom',
+    hq: 'Higher quality uses more of the free daily allowance; on busy days the server may lower it a little to stay free.', watch: 'Watch stream', fullscreen: 'Full screen', exitFullscreen: 'Exit full screen', zoomHint: 'Scroll to zoom, drag to move', resetZoom: 'Reset zoom',
     volume: 'User volume', live: 'LIVE', serverMuted: 'Server muted by a moderator',
   },
   vs: {
@@ -104,7 +105,7 @@ const en = {
   },
   dm: { start: 'This is the beginning of your direct messages with {{name}}.', groupStart: 'Welcome to the start of the {{name}} group.', blocked: 'You cannot send messages in this conversation.', placeholder: 'Message @{{name}}' },
   call: { incoming: 'Incoming call', from: '{{name}} is calling…', accept: 'Accept', decline: 'Decline', ringing: 'Ringing…', inCall: 'In call', join: 'Join call', leave: 'Leave call' },
-  profile: { member: 'mncord member since', aboutMe: 'About me', mutualServers: '{{count}} mutual servers', mutualFriends: '{{count}} mutual friends', message: 'Message', addFriend: 'Add friend', pending: 'Request sent', friends: 'Friends', block: 'Block', unblock: 'Unblock', you: 'This is you', copyId: 'Copy user ID' },
+  profile: { member: 'mncord member since', aboutMe: 'About me', mutualServers_one: '1 mutual server', mutualServers_other: '{{count}} mutual servers', mutualFriends_one: '1 mutual friend', mutualFriends_other: '{{count}} mutual friends', message: 'Message', addFriend: 'Add friend', pending: 'Request sent', friends: 'Friends', block: 'Block', unblock: 'Unblock', you: 'This is you', copyId: 'Copy user ID' },
   status: { online: 'Online', idle: 'Idle', dnd: 'Do not disturb', offline: 'Offline', invisible: 'Invisible', custom: 'Set a custom status' },
   mfa: { title: 'Two-factor authentication', sub: 'Enter the 6-digit code from your authenticator app.', code: 'Code', backupHint: 'Lost your phone? Enter one of your backup codes (xxxx-xxxx).', verify: 'Verify', back: 'Back to sign in' },
   forgot: { title: 'Reset your password', sub: 'We will email you a 6-digit code.', send: 'Send code', codeSent: 'If that email has an account, a code is on its way.', code: 'Code from the email', newPassword: 'New password', reset: 'Reset password' },
@@ -174,7 +175,7 @@ const ar: typeof en = {
   ctx: { markRead: 'تعليم كمقروء', muteServer: 'كتم الخادم', muteChannel: 'كتم القناة', copyId: 'نسخ المعرّف' },
   live: {
     goLive: 'ابدأ البث', stop: 'إيقاف البث', camera: 'تشغيل الكاميرا', cameraOff: 'إيقاف الكاميرا', screens: 'الشاشات', windows: 'التطبيقات', quality: 'جودة البث', audio: 'مشاركة الصوت',
-    hq: 'حتى 1440p و60 إطارًا عبر التطبيق. دقة 4K وأكثر من 120 إطارًا تأتي مع أداة mncord-capture.', watch: 'شاهد البث', fullscreen: 'ملء الشاشة', exitFullscreen: 'الخروج من ملء الشاشة', zoomHint: 'مرّر للتكبير واسحب للتحريك', resetZoom: 'إعادة التكبير',
+    hq: 'الجودة الأعلى تستهلك أكثر من الحد اليومي المجاني؛ في الأيام المزدحمة ممكن السيرفر يخففها شوي عشان يبقى مجاني.', watch: 'شاهد البث', fullscreen: 'ملء الشاشة', exitFullscreen: 'الخروج من ملء الشاشة', zoomHint: 'مرّر للتكبير واسحب للتحريك', resetZoom: 'إعادة التكبير',
     volume: 'مستوى صوت المستخدم', live: 'مباشر', serverMuted: 'تم كتمك من قِبل مشرف',
   },
   vs: {
@@ -232,7 +233,7 @@ const ar: typeof en = {
   },
   dm: { start: 'هذه بداية رسائلك الخاصة مع \u2068{{name}}\u2069.', groupStart: 'أهلًا بك في بداية مجموعة \u2068{{name}}\u2069.', blocked: 'لا يمكنك إرسال رسائل في هذه المحادثة.', placeholder: 'أرسل رسالة إلى ⁨@{{name}}⁩' },
   call: { incoming: 'مكالمة واردة', from: '\u2068{{name}}\u2069 يتصل بك…', accept: 'قبول', decline: 'رفض', ringing: 'جارٍ الرنين…', inCall: 'في مكالمة', join: 'انضم إلى المكالمة', leave: 'مغادرة المكالمة' },
-  profile: { member: 'عضو في mncord منذ', aboutMe: 'نبذة عني', mutualServers: '{{count}} خوادم مشتركة', mutualFriends: '{{count}} أصدقاء مشتركون', message: 'رسالة', addFriend: 'إضافة صديق', pending: 'تم إرسال الطلب', friends: 'أصدقاء', block: 'حظر', unblock: 'إلغاء الحظر', you: 'هذا أنت', copyId: 'نسخ معرّف المستخدم' },
+  profile: { member: 'عضو في mncord منذ', aboutMe: 'نبذة عني', mutualServers_one: 'سيرفر مشترك واحد', mutualServers_other: '{{count}} سيرفرات مشتركة', mutualFriends_one: 'صديق مشترك واحد', mutualFriends_other: '{{count}} أصدقاء مشتركون', message: 'رسالة', addFriend: 'إضافة صديق', pending: 'تم إرسال الطلب', friends: 'أصدقاء', block: 'حظر', unblock: 'إلغاء الحظر', you: 'هذا أنت', copyId: 'نسخ معرّف المستخدم' },
   status: { online: 'متصل', idle: 'خامل', dnd: 'عدم الإزعاج', offline: 'غير متصل', invisible: 'مخفي', custom: 'اكتب حالة مخصصة' },
   mfa: { title: 'التحقق بخطوتين', sub: 'أدخل الرمز المكوّن من 6 أرقام من تطبيق المصادقة.', code: 'الرمز', backupHint: 'فقدت هاتفك؟ أدخل أحد رموزك الاحتياطية (xxxx-xxxx).', verify: 'تحقّق', back: 'العودة إلى تسجيل الدخول' },
   forgot: { title: 'إعادة تعيين كلمة المرور', sub: 'سنرسل إليك رمزًا من 6 أرقام عبر البريد.', send: 'أرسل الرمز', codeSent: 'إن كان لهذا البريد حساب فالرمز في طريقه إليك.', code: 'الرمز من البريد', newPassword: 'كلمة المرور الجديدة', reset: 'إعادة التعيين' },
@@ -267,6 +268,9 @@ function initialLang(): 'en' | 'ar' {
   }
   return 'en'; // English by default; Arabic is one click away in Settings → Language
 }
+
+mergeInto(en as never, EN_EXTRA);
+mergeInto(ar as never, AR_EXTRA);
 
 void i18n.use(initReactI18next).init({
   resources: { en: { translation: en }, ar: { translation: ar } },

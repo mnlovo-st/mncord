@@ -1,6 +1,8 @@
 // mncord mic processing chain. Runs entirely on the user's PC (no server cost).
-//   mic → high-pass → noise suppression (GTCRN AI | RNNoise | off) → noise gate
-//       → 3-band EQ → compressor → makeup gain → limiter → output track
+//   mic → mono → input gain → loud-voice guard (soft clip) → high-pass → noise suppression
+//       (off | standard RNNoise | AI GTCRN | max: both) → noise gate → 3-band EQ → compressor → limiter → track
+// Everything is mono on purpose: a stereo device with one live side used to come out of the left ear only
+// (and at half volume for everyone else).
 // Every stage can be bypassed live; settings are plain JSON so presets can be saved.
 import { GtcrnWorkletNode, loadGtcrn, loadRnnoise, NoiseGateWorkletNode, RnnoiseWorkletNode } from '@sapphi-red/web-noise-suppressor';
 import gtcrnWorkletUrl from '@sapphi-red/web-noise-suppressor/gtcrnWorklet.js?url';
@@ -10,7 +12,7 @@ import gtcrnWasmUrl from '@sapphi-red/web-noise-suppressor/gtcrn.wasm?url';
 import rnnoiseWasmUrl from '@sapphi-red/web-noise-suppressor/rnnoise.wasm?url';
 import rnnoiseSimdWasmUrl from '@sapphi-red/web-noise-suppressor/rnnoise_simd.wasm?url';
 
-export type Suppression = 'off' | 'rnnoise' | 'gtcrn';
+export type Suppression = 'off' | 'rnnoise' | 'gtcrn' | 'max';
 
 export interface MicSettings {
   suppression: Suppression;
@@ -20,19 +22,37 @@ export interface MicSettings {
   compressor: { enabled: boolean; thresholdDb: number; ratio: number; attackMs: number; releaseMs: number; makeupDb: number };
   limiter: { enabled: boolean; ceilingDb: number };
   inputGainDb: number;
+  /** rounds off peaks before suppression so shouting/laughing never drops out */
+  loudProtect: boolean;
 }
 
 export const DEFAULT_MIC: MicSettings = {
-  suppression: 'gtcrn',
+  suppression: 'rnnoise',
   highpassHz: 80,
-  gate: { enabled: true, openDb: -50, closeDb: -56, holdMs: 200 },
-  eq: { lowDb: 0, midDb: 0, highDb: 1.5 },
-  compressor: { enabled: true, thresholdDb: -24, ratio: 3, attackMs: 5, releaseMs: 120, makeupDb: 4 },
+  // long hold + wide hysteresis: the tail of a stretched vowel ("laaaaa") is never chopped
+  gate: { enabled: true, openDb: -58, closeDb: -68, holdMs: 450 },
+  eq: { lowDb: 0, midDb: 0, highDb: 1 },
+  // gentle: levels you out without "pumping" loud moments down
+  compressor: { enabled: true, thresholdDb: -20, ratio: 2.5, attackMs: 10, releaseMs: 220, makeupDb: 3 },
   limiter: { enabled: true, ceilingDb: -1 },
   inputGainDb: 0,
+  loudProtect: true,
 };
 
 const dbToGain = (db: number) => 10 ** (db / 20);
+/** saved settings over the defaults (empty / undefined values never replace a default) */
+export function withDefaults(saved: Partial<MicSettings>, suppression?: Suppression): MicSettings {
+  const clean = Object.fromEntries(Object.entries(saved).filter(([, v]) => v !== undefined && v !== null)) as Partial<MicSettings>;
+  return {
+    ...DEFAULT_MIC,
+    ...clean,
+    gate: { ...DEFAULT_MIC.gate, ...clean.gate },
+    eq: { ...DEFAULT_MIC.eq, ...clean.eq },
+    compressor: { ...DEFAULT_MIC.compressor, ...clean.compressor },
+    limiter: { ...DEFAULT_MIC.limiter, ...clean.limiter },
+    suppression: suppression ?? clean.suppression ?? DEFAULT_MIC.suppression,
+  };
+}
 const wasmCache = new Map<string, Promise<ArrayBuffer>>();
 const cached = (key: string, load: () => Promise<ArrayBuffer>) => {
   if (!wasmCache.has(key)) wasmCache.set(key, load());
@@ -60,13 +80,28 @@ export async function createMicChain(input: MediaStream, initial: MicSettings = 
   ]);
 
   const src = ctx.createMediaStreamSource(input);
-  const inGain = ctx.createGain();
+  const mono = (n: AudioNode) => {
+    n.channelCount = 1;
+    n.channelCountMode = 'explicit';
+    n.channelInterpretation = 'speakers';
+    return n;
+  };
+  const inGain = mono(ctx.createGain()) as GainNode;
+  // soft clip: transparent below ~-2 dBFS, then rounds peaks instead of letting them overload the denoiser
+  const guard = mono(ctx.createWaveShaper()) as WaveShaperNode;
+  const curve = new Float32Array(2049);
+  for (let i = 0; i < curve.length; i++) {
+    const x = (i / (curve.length - 1)) * 2 - 1;
+    const a = Math.abs(x);
+    curve[i] = a < 0.8 ? x : Math.sign(x) * (0.8 + 0.18 * Math.tanh((a - 0.8) / 0.18));
+  }
+  guard.oversample = '2x';
   const inMeter = ctx.createAnalyser();
   inMeter.fftSize = 1024;
   const hp = ctx.createBiquadFilter();
   hp.type = 'highpass';
-  const suppressIn = ctx.createGain(); // fixed anchor points so stages can be swapped
-  const suppressOut = ctx.createGain();
+  const suppressIn = mono(ctx.createGain()); // fixed anchor points so stages can be swapped
+  const suppressOut = mono(ctx.createGain());
   const low = ctx.createBiquadFilter();
   low.type = 'lowshelf';
   low.frequency.value = 200;
@@ -87,11 +122,12 @@ export async function createMicChain(input: MediaStream, initial: MicSettings = 
   const outMeter = ctx.createAnalyser();
   outMeter.fftSize = 1024;
   const dest = ctx.createMediaStreamDestination();
+  dest.channelCount = 1;
   const monitor = ctx.createGain();
   monitor.gain.value = 0;
 
   src.connect(inGain).connect(inMeter);
-  inGain.connect(hp).connect(suppressIn);
+  inGain.connect(guard).connect(hp).connect(suppressIn);
   suppressOut.connect(low).connect(mid).connect(high);
   // compressor/limiter are wired in update() so they can be bypassed
   outMeter.connect(dest);
@@ -115,15 +151,16 @@ export async function createMicChain(input: MediaStream, initial: MicSettings = 
     }
     suppressIn.disconnect();
     stage = [];
-    if (s.suppression === 'gtcrn') {
-      const wasmBinary = await cached('gtcrn', () => loadGtcrn({ url: gtcrnWasmUrl }));
-      stage.push(new GtcrnWorkletNode(ctx, { wasmBinary, maxChannels: 1 }));
-    } else if (s.suppression === 'rnnoise') {
+    if (s.suppression === 'rnnoise' || s.suppression === 'max') {
       const wasmBinary = await cached('rnnoise', () => loadRnnoise({ url: rnnoiseWasmUrl, simdUrl: rnnoiseSimdWasmUrl }));
-      stage.push(new RnnoiseWorkletNode(ctx, { wasmBinary, maxChannels: 1 }));
+      stage.push(mono(new RnnoiseWorkletNode(ctx, { wasmBinary, maxChannels: 1 })));
+    }
+    if (s.suppression === 'gtcrn' || s.suppression === 'max') {
+      const wasmBinary = await cached('gtcrn', () => loadGtcrn({ url: gtcrnWasmUrl }));
+      stage.push(mono(new GtcrnWorkletNode(ctx, { wasmBinary, maxChannels: 1 })));
     }
     if (s.gate.enabled) {
-      stage.push(new NoiseGateWorkletNode(ctx, { openThreshold: s.gate.openDb, closeThreshold: s.gate.closeDb, holdMs: s.gate.holdMs, maxChannels: 1 }));
+      stage.push(mono(new NoiseGateWorkletNode(ctx, { openThreshold: s.gate.openDb, closeThreshold: s.gate.closeDb, holdMs: s.gate.holdMs, maxChannels: 1 })));
     }
     let prev: AudioNode = suppressIn;
     for (const n of stage) {
@@ -153,6 +190,7 @@ export async function createMicChain(input: MediaStream, initial: MicSettings = 
 
   function applyParams(s: MicSettings) {
     const t = ctx.currentTime;
+    guard.curve = s.loudProtect === false ? null : curve;
     inGain.gain.setTargetAtTime(dbToGain(s.inputGainDb), t, 0.02);
     hp.frequency.setTargetAtTime(s.highpassHz > 0 ? s.highpassHz : 10, t, 0.02);
     low.gain.setTargetAtTime(s.eq.lowDb, t, 0.02);
@@ -220,6 +258,10 @@ export async function createRawMic(input: MediaStream): Promise<MicChain> {
     return 20 * Math.log10(Math.sqrt(s / buf.length) + 1e-9);
   };
   let monitoring = false;
+  const both = ctx.createGain();
+  both.channelCount = 1;
+  both.channelCountMode = 'explicit';
+  src.connect(both);
   return {
     track,
     context: ctx,
@@ -229,12 +271,17 @@ export async function createRawMic(input: MediaStream): Promise<MicChain> {
     setMonitoring(on: boolean) {
       if (on === monitoring) return;
       monitoring = on;
-      if (on) src.connect(ctx.destination);
-      else src.disconnect(ctx.destination);
+      if (on) both.connect(ctx.destination);
+      else both.disconnect();
     },
     destroy() {
       input.getTracks().forEach((t) => t.stop());
       void ctx.close();
     },
   };
+}
+
+/** warm the denoiser downloads at startup so joining a call doesn't wait for them */
+export function preloadSuppression() {
+  void cached('rnnoise', () => loadRnnoise({ url: rnnoiseWasmUrl, simdUrl: rnnoiseSimdWasmUrl })).catch(() => wasmCache.delete('rnnoise'));
 }

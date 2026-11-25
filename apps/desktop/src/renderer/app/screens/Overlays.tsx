@@ -1,7 +1,7 @@
 import { DevBadge } from '../../ui/DevBadge';
 // S17 profile card (opens where you clicked) · S36 incoming call
 import type { FullProfile } from '@mncord/shared';
-import { Ban, MessageCircle, Phone, PhoneOff, UserCheck, UserPlus } from 'lucide-react';
+import { Ban, Gamepad2, MessageCircle, Phone, PhoneOff, UserCheck, UserPlus } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Avatar, type Status } from '../../ui/Avatar';
@@ -10,6 +10,8 @@ import { api, avatarUrl } from '../api';
 import { loopSound, playSound } from '../sounds';
 import { set, useStore } from '../store';
 import { joinVoice } from '../voice';
+import { ProfileEffect, StyledName } from '../../ui/Cosmetics';
+import { formatElapsed } from '../activityText';
 import { openDm } from './Home';
 
 export function ProfileCard() {
@@ -18,6 +20,8 @@ export function ProfileCard() {
   const me = useStore((s) => s.me);
   const rel = useStore((s) => (target ? s.relationships[target.userId]?.type : undefined));
   const presence = useStore((s) => (target ? s.presence[target.userId] : undefined));
+  const liveAct = useStore((s) => (target ? s.activities[target.userId] : undefined));
+  const liveUser = useStore((s) => (target ? s.users[target.userId] : undefined));
   const [p, setP] = useState<FullProfile | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: 0, top: 0 });
@@ -61,16 +65,27 @@ export function ProfileCard() {
   };
 
   return (
-    <div ref={ref} role="dialog" aria-label={p?.displayName ?? p?.username ?? ''} className="anim-pop fixed z-50 w-[300px] overflow-hidden rounded-lg bg-popover shadow-pop" style={pos}>
+    <div ref={ref} role="dialog" aria-label={p?.displayName ?? p?.username ?? ''} className="anim-pop fixed z-50 w-[300px] overflow-hidden rounded-xl bg-popover shadow-pop" style={pos}>
+      <ProfileEffect id={(liveUser?.style ?? p?.style)?.effect} />
       <div className="h-[60px] bg-cover bg-center" style={{ backgroundImage: p?.bannerKey ? `url(${avatarUrl(p.bannerKey)})` : undefined, background: p?.bannerKey ? undefined : p?.accentColor != null ? `#${p.accentColor.toString(16).padStart(6, '0')}` : 'linear-gradient(120deg, color-mix(in srgb, var(--c-accent) 50%, #000), color-mix(in srgb, var(--c-text-link) 40%, #000))' }} />
       <div className="px-4 pb-4">
-        <div className="-mt-10 mb-2 w-fit rounded-full border-[6px] border-popover"><Avatar name={p?.displayName ?? p?.username ?? '…'} src={avatarUrl(p?.avatarKey)} size={80} status={status} cutout="border-popover" /></div>
+        <div className="-mt-10 mb-2 w-fit rounded-full border-[6px] border-popover"><Avatar name={p?.displayName ?? p?.username ?? '…'} src={avatarUrl(liveUser?.avatarKey ?? p?.avatarKey)} size={80} status={status} cutout="border-popover" decoration={(liveUser?.style ?? p?.style)?.decoration} /></div>
         {!p ? (
           <div className="h-24 animate-pulse rounded-md bg-surface-raised" />
         ) : (
           <>
-            <h3 className="flex items-center gap-2 font-display text-lg font-bold leading-tight" dir="auto">{p.displayName ?? p.username}<DevBadge flags={p.flags} size="md" /></h3>
+            <h3 className="flex items-center gap-2 font-display text-xl font-bold leading-tight" dir="auto"><StyledName style={liveUser?.style ?? p.style}>{liveUser?.displayName ?? p.displayName ?? p.username}</StyledName><DevBadge flags={p.flags} size="md" /></h3>
             <p className="text-sm text-muted">@{p.username}{p.pronouns ? ` · ${p.pronouns}` : ''}</p>
+            {(liveAct ?? p.activity) && (
+              <div className="mt-3 flex items-center gap-3 rounded-lg bg-bg-deep/60 p-3">
+                <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-[linear-gradient(135deg,var(--c-accent),color-mix(in_srgb,var(--c-accent)_40%,#000))] text-white"><Gamepad2 className="size-6" /></span>
+                <div className="min-w-0 text-sm">
+                  <p className="text-2xs font-bold uppercase tracking-wide text-faint">{t('activity.playingTitle')}</p>
+                  <p className="truncate font-semibold" dir="auto">{(liveAct ?? p.activity)!.name}</p>
+                  <p className="text-xs text-success">{formatElapsed(Date.now() - (liveAct ?? p.activity)!.startedAt, t)}</p>
+                </div>
+              </div>
+            )}
             <div className="mt-3 rounded-md bg-bg-deep/60 p-3 text-sm">
               {p.bio && (
                 <>
@@ -91,7 +106,7 @@ export function ProfileCard() {
             ) : (
               <div className="mt-3 flex flex-wrap gap-2">
                 {relationship !== 'blocked' && (
-                  <Button size="sm" className="flex-1 justify-center" icon={<MessageCircle className="size-4" />} onClick={() => void act(() => openDm(p.id))}>{t('profile.message')}</Button>
+                  <Button size="sm" className="basis-full justify-center" icon={<MessageCircle className="size-4" />} onClick={() => void act(() => openDm(p.id))}>{t('profile.message')}</Button>
                 )}
                 {relationship === null && <Button size="sm" variant="secondary" icon={<UserPlus className="size-4" />} onClick={() => void act(() => api('POST', '/users/@me/relationships', { username: p.username }))}>{t('profile.addFriend')}</Button>}
                 {relationship === 'outgoing' && <Button size="sm" variant="secondary" disabled>{t('profile.pending')}</Button>}

@@ -92,7 +92,7 @@ function Shell({ t }: { t: Strings }) {
             </ChannelItem>
           </ChannelCategory>
         </ul>
-        <VoiceConnectedPanel channel={`${t.lounge} / ${t.server}`} labels={{ connected: t.connected, disconnect: t.disconnect, camera: t.camera, screen: t.screen, noise: t.noise, ping: t.ping }} />
+        <VoiceConnectedPanel channel={`${t.lounge} / ${t.server}`} labels={{ connected: t.connected, disconnect: t.disconnect, camera: t.camera, cameraOff: t.camera, screen: t.screen, noise: t.noise, ping: t.ping }} />
         <UserPanel
           name="mnlovo"
           tag="@mnlovo"
@@ -101,7 +101,7 @@ function Shell({ t }: { t: Strings }) {
           deafened={deaf}
           onMute={() => setMuted((m) => !m)}
           onDeafen={() => setDeaf((d) => !d)}
-          labels={{ mute: t.mute, unmute: t.unmute, deafen: t.deafen, undeafen: t.undeafen, settings: t.settings, status: t.status }}
+          labels={{ mute: t.mute, unmute: t.unmute, deafen: t.deafen, undeafen: t.undeafen, settings: t.settings, status: t.status, inputOptions: 'Input', outputOptions: 'Output' }}
         />
       </aside>
 

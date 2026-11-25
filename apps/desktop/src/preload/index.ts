@@ -3,6 +3,14 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 export interface CaptureSource { id: string; name: string; thumbnail: string; icon: string | null }
 
+function on<T>(channel: string, cb: (v: T) => void) {
+  const h = (_e: unknown, v: T) => cb(v);
+  ipcRenderer.on(channel, h);
+  return () => {
+    ipcRenderer.removeListener(channel, h);
+  };
+}
+
 const api = {
   platform: process.platform,
   capture: {
@@ -41,6 +49,16 @@ const api = {
       };
     },
     install: (): Promise<void> => ipcRenderer.invoke('update:install'),
+    onAvailable: (cb: (info: { version: string; notes: string }) => void) => on('update:available', cb),
+    onInfo: (cb: (info: { version: string; notes: string }) => void) => on('update:info', cb),
+    onProgress: (cb: (p: { percent: number; bps: number; transferred: number; total: number }) => void) => on('update:progress', cb),
+  },
+  app: {
+    version: (): Promise<string> => ipcRenderer.invoke('app:version'),
+  },
+  games: {
+    /** names of running programs (lower-case exe names), for "Playing …" */
+    running: (): Promise<string[]> => ipcRenderer.invoke('games:running'),
   },
   log: {
     error: (msg: string): Promise<void> => ipcRenderer.invoke('log:error', msg),

@@ -1,4 +1,5 @@
 import { cn } from './cn';
+import { Decoration } from './Cosmetics';
 
 export type Status = 'online' | 'idle' | 'dnd' | 'offline' | 'streaming';
 
@@ -17,7 +18,7 @@ function hue(name: string) {
   return h;
 }
 
-export function Avatar({ name, src, size = 40, status, speaking, self, statusLabel, cutout = 'border-surface' }: {
+export function Avatar({ name, src, size = 40, status, speaking, self, statusLabel, cutout = 'border-surface', decoration }: {
   name: string;
   src?: string;
   size?: number;
@@ -28,6 +29,8 @@ export function Avatar({ name, src, size = 40, status, speaking, self, statusLab
   statusLabel?: string;
   /** border colour class matching the background behind the avatar */
   cutout?: string;
+  /** free avatar decoration id (ring) */
+  decoration?: string | null;
 }) {
   const dot = Math.max(10, Math.round(size * 0.32));
   return (
@@ -49,6 +52,7 @@ export function Avatar({ name, src, size = 40, status, speaking, self, statusLab
           </>
         )}
       </span>
+      <Decoration id={decoration} size={size} />
       {status && (
         <span
           role="img"

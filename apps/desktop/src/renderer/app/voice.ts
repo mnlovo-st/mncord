@@ -2,7 +2,7 @@
 // mncord processing chain; remote audio plays through Web Audio so per-user volume can reach 400%.
 import type { MediaSource, RtcJoin } from '@mncord/shared';
 import { create } from 'zustand';
-import { createMicChain, createRawMic, DEFAULT_MIC, type MicChain, type MicSettings, type Suppression } from '../media/micChain';
+import { createMicChain, createRawMic, withDefaults, type MicChain, type MicSettings, type Suppression } from '../media/micChain';
 import { api } from './api';
 import { send } from './gateway';
 import { setPrefs, usePrefs } from './prefs';
@@ -66,6 +66,7 @@ let speakTimer: ReturnType<typeof setInterval> | null = null;
 // ── remote audio through Web Audio: gain per user (0–400%) + level meter for speaking rings
 let actx: AudioContext | null = null;
 let master: DynamicsCompressorNode | null = null;
+let outGain: GainNode | null = null;
 const remoteAudio = new Map<string, { el: HTMLAudioElement; src: MediaStreamAudioSourceNode; gain: GainNode; meter: AnalyserNode; userId: string }>();
 function audioCtx() {
   if (!actx) {
@@ -78,7 +79,9 @@ function audioCtx() {
     master.ratio.value = 3;
     master.attack.value = 0.006;
     master.release.value = 0.22;
-    master.connect(actx.destination);
+    outGain = actx.createGain();
+    outGain.gain.value = usePrefs.getState().outputVolume / 100;
+    master.connect(outGain).connect(actx.destination);
     const out = usePrefs.getState().outputDeviceId;
     if (out !== 'default') void (actx as AudioContext & { setSinkId?(id: string): Promise<void> }).setSinkId?.(out).catch(() => {});
   }
@@ -111,8 +114,16 @@ function stopRemote(key: string) {
   remoteAudio.delete(key);
 }
 function applyUserVolume(userId: string) {
-  const vol = getV().deafened || getV().serverDeafened ? 0 : (usePrefs.getState().userVolumes[userId] ?? 1);
+  const p = usePrefs.getState();
+  const vol = getV().deafened || getV().serverDeafened || p.localMutes[userId] ? 0 : (p.userVolumes[userId] ?? 1);
   for (const r of remoteAudio.values()) if (r.userId === userId) r.gain.gain.setTargetAtTime(vol, audioCtx().currentTime, 0.02);
+}
+export function setLocalMute(userId: string, muted: boolean) {
+  const m = { ...usePrefs.getState().localMutes };
+  if (muted) m[userId] = true;
+  else delete m[userId];
+  setPrefs({ localMutes: m });
+  applyUserVolume(userId);
 }
 export function setUserVolume(userId: string, vol: number) {
   setPrefs({ userVolumes: { ...usePrefs.getState().userVolumes, [userId]: Math.max(0, Math.min(4, vol)) } });
@@ -138,7 +149,7 @@ function startSpeakingMeter() {
   }, 120);
 }
 
-const micSettings = (): MicSettings => ({ ...DEFAULT_MIC, ...usePrefs.getState().mic, suppression: getV().suppression });
+const micSettings = (): MicSettings => withDefaults(usePrefs.getState().mic, getV().suppression);
 
 /** Opens the microphone: either the full mncord chain, or raw (exactly what the device gives, untouched). */
 async function openMic(): Promise<MicChain> {
@@ -157,7 +168,7 @@ function micPublishOpts(channelBitrate: number) {
   lastBitrate = channelBitrate;
   const raw = usePrefs.getState().rawMic;
   const maxBitrate = Math.min(raw ? Math.max(channelBitrate, 128_000) : channelBitrate, 510_000);
-  return { maxBitrate, opus: raw ? { usedtx: 0, maxaveragebitrate: maxBitrate } : undefined };
+  return { maxBitrate, opus: { usedtx: 0, maxaveragebitrate: maxBitrate } };
 }
 /** switching raw on/off during a call: reopen the mic and republish it */
 async function reopenMic() {
@@ -244,6 +255,9 @@ usePrefs.subscribe((s, prev) => {
     publishState();
   }
   if (JSON.stringify(s.mic) !== JSON.stringify(prev.mic) && mic) void mic.update(micSettings());
+  if (s.outputVolume !== prev.outputVolume && outGain && actx) outGain.gain.setTargetAtTime(s.outputVolume / 100, actx.currentTime, 0.03);
+  if (s.outputDeviceId !== prev.outputDeviceId && actx) void (actx as AudioContext & { setSinkId?(id: string): Promise<void> }).setSinkId?.(s.outputDeviceId === 'default' ? '' : s.outputDeviceId).catch(() => {});
+  if (s.inputDeviceId !== prev.inputDeviceId && mic) void reopenMic();
   if ((s.rawMic !== prev.rawMic || (!s.rawMic && (s.echoCancellation !== prev.echoCancellation || s.autoGain !== prev.autoGain))) && mic) void reopenMic();
 });
 
@@ -258,12 +272,40 @@ async function syncSubscriptions(userId: string, sources: MediaSource[]) {
   if (want.length && !getV().serverDeafened) await e.subscribe(want).catch((err) => console.warn('[voice] subscribe failed', err));
 }
 
+let joinSeq = 0;
+let rejoinTries = 0;
+/** batch: one negotiation for everyone already in the room instead of one per person */
+async function subscribeAll(e: RtcEngine, participants: { userId: string; sources: MediaSource[] }[]) {
+  const me = getApp().me?.id;
+  const want: { userId: string; source: MediaSource }[] = [];
+  const available = { ...useMedia.getState().available };
+  for (const p of participants) {
+    if (p.userId === me) continue;
+    available[p.userId] = p.sources;
+    for (const s of p.sources) if (AUTO.includes(s) && !(s === 'camera' && !getV().videoAllowed)) want.push({ userId: p.userId, source: s });
+  }
+  useMedia.setState({ available });
+  if (want.length && !getV().serverDeafened) await e.subscribe(want).catch((err) => console.warn('[voice] subscribe failed', err));
+}
+
 export async function joinVoice(guildId: string | null, channelId: string) {
-  if (getV().channelId === channelId && getV().status !== 'error') return;
-  await leaveVoice();
+  const cur = getV();
+  if (cur.channelId === channelId && cur.status !== 'error') return; // already here / already joining (double click)
+  const seq = ++joinSeq;
+  const stale = () => seq !== joinSeq;
+  const switching = !!cur.channelId;
+  // the UI moves right away; the old call is torn down in the background
   setV({ channelId, guildId, status: 'connecting', error: null, camera: false, streaming: false, pttActive: false });
+  if (switching) await teardown(false);
+  if (stale()) return;
+  // open the mic while the server sets up the session (both take a moment; do them together)
+  const micP: Promise<MicChain | Error> = openMic().catch((err: Error) => err);
   try {
     const join = await api<RtcJoin>('POST', `/voice/${channelId}/join`);
+    if (stale()) {
+      void micP.then((m) => !(m instanceof Error) && m.destroy());
+      return;
+    }
     setV({ serverMuted: join.serverMute, serverDeafened: join.serverDeaf, allowed: join.allowed, videoAllowed: join.videoAllowed });
     const e = new RtcEngine(channelId, join);
     engine = e;
@@ -277,41 +319,65 @@ export async function joinVoice(guildId: string | null, channelId: string) {
       else setTile(userId, source === 'screen' ? 'screen' : 'camera', undefined);
     };
     e.onState = (s) => {
-      if (s === 'failed') {
-        playSound('disconnect');
-        // rejoin cleanly (new session, everything renegotiated)
+      if (s === 'connected') rejoinTries = 0;
+      if (s === 'failed' && engine === e) {
+        // rejoin cleanly (new session, everything renegotiated), a few times with a pause, then give up
         const { guildId: g, channelId: c } = getV();
-        if (c) void leaveVoice().then(() => joinVoice(g, c));
+        if (!c) return;
+        if (rejoinTries >= 3) {
+          rejoinTries = 0;
+          playSound('disconnect');
+          void teardown(true).then(() => setV({ channelId: null, guildId: null, status: 'error', error: 'rtc_unavailable' }));
+          return;
+        }
+        rejoinTries++;
+        void teardown(false).then(() => setTimeout(() => {
+          if (getV().channelId !== c) return; // you left meanwhile
+          setV({ channelId: null });
+          void joinVoice(g, c);
+        }, 800 * rejoinTries));
       }
     };
     publishState(); // you're in the channel now (others see you; the server lets you pull)
-
-    if (join.allowed.includes('mic')) {
-      try {
-        mic = await openMic();
-        syncMic();
-        await e.publish(mic.track, 'mic', micPublishOpts(join.bitrate));
-      } catch (err) {
-        console.warn('[voice] mic unavailable', err);
-        setV({ error: (err as Error).name === 'NotAllowedError' ? 'mic_denied' : null, muted: true });
-      }
-    }
-    for (const p of join.participants) await syncSubscriptions(p.userId, p.sources);
     setV({ status: 'connected' });
+    if (!rejoinTries) playSound('join'); // quiet when we're just reconnecting
     setupPtt();
     startSpeakingMeter();
-    playSound('join');
-    publishState();
+
+    const pubMic = (async () => {
+      const m = await micP;
+      if (stale() || engine !== e) {
+        if (!(m instanceof Error)) m.destroy();
+        return;
+      }
+      if (!join.allowed.includes('mic')) {
+        if (!(m instanceof Error)) m.destroy();
+        return;
+      }
+      if (m instanceof Error) {
+        console.warn('[voice] mic unavailable', m);
+        setV({ error: m.name === 'NotAllowedError' ? 'mic_denied' : null, muted: true });
+        return;
+      }
+      mic = m;
+      syncMic();
+      await e.publish(m.track, 'mic', micPublishOpts(join.bitrate));
+    })();
+    await Promise.all([pubMic, subscribeAll(e, join.participants)]);
+    if (!stale()) publishState();
   } catch (err) {
+    if (stale()) return;
     console.error('[voice] join failed', err);
+    void micP.then((m) => !(m instanceof Error) && m !== mic && m.destroy());
     setV({ status: 'error', error: (err as { code?: string }).code ?? 'unknown' });
-    await engine?.close();
+    const e = engine;
     engine = null;
+    await e?.close();
   }
 }
 
-export async function leaveVoice() {
-  const had = getV().channelId;
+/** stops everything local; `announce` tells the server you left (not needed when switching rooms) */
+async function teardown(announce: boolean) {
   pttOff?.();
   pttOff = null;
   void window.mncord?.ptt.configure(null);
@@ -322,15 +388,31 @@ export async function leaveVoice() {
   for (const k of [...remoteAudio.keys()]) stopRemote(k);
   const e = engine;
   engine = null;
-  await e?.close();
   useMedia.setState({ tiles: {}, available: {} });
-  if (had) {
+  setApp({ speaking: {} });
+  if (announce) {
     const v = getV();
     send({ op: 'voice_state', guildId: v.guildId, channelId: null, selfMute: v.muted, selfDeaf: v.deafened });
-    playSound('leave');
   }
+  await e?.close().catch(() => {});
+}
+
+export async function leaveVoice() {
+  const had = getV().channelId;
+  joinSeq++; // cancels a join that is still in progress
+  if (!had) return;
+  // instant: sound + UI first, network cleanup after
+  playSound('leave');
+  const closing = teardown(true);
   setV({ channelId: null, guildId: null, status: 'idle', camera: false, streaming: false, pttActive: false, serverMuted: false, serverDeafened: false });
-  setApp({ speaking: {} });
+  await closing;
+}
+
+/** Gateway: a moderator moved you to another voice channel. */
+export function onVoiceMove(d: { guildId: string | null; channelId: string }) {
+  if (!getV().channelId || getV().channelId === d.channelId) return;
+  if (d.guildId) setApp((s) => ({ selectedChannel: { ...s.selectedChannel, [d.guildId!]: d.channelId } }));
+  void joinVoice(d.guildId, d.channelId);
 }
 
 /** Gateway: someone in your call started/stopped publishing. */
@@ -396,21 +478,22 @@ export async function toggleCamera() {
   publishState();
 }
 
-// ── Go Live. Up to 60 fps through Chromium; higher rates need the mncord-capture helper.
-export const STREAM_PRESETS = {
-  '720p30': { width: 1280, height: 720, fps: 30, bitrate: 2_500_000 },
-  '1080p30': { width: 1920, height: 1080, fps: 30, bitrate: 4_500_000 },
-  '1080p60': { width: 1920, height: 1080, fps: 60, bitrate: 8_000_000 },
-  '1440p60': { width: 2560, height: 1440, fps: 60, bitrate: 12_000_000 },
-  '1440p100': { width: 2560, height: 1440, fps: 100, bitrate: 16_000_000 },
-} as const;
-type Preset = keyof typeof STREAM_PRESETS;
-const ORDER: Preset[] = ['1440p100', '1440p60', '1080p60', '1080p30', '720p30'];
-/** the better of two presets is the one earlier in ORDER; the server's cap wins */
-const clampPreset = (want: Preset, cap: string): Preset => {
-  const c = ORDER.indexOf(cap as Preset);
-  return c >= 0 && ORDER.indexOf(want) < c ? (cap as Preset) : want;
+// ── Go Live. The picker chooses resolution and frame rate; the server's daily cap can lower them.
+const BITRATE: Record<number, Record<number, number>> = {
+  720: { 15: 1_500_000, 30: 2_500_000, 60: 4_000_000, 100: 5_500_000 },
+  1080: { 15: 2_500_000, 30: 4_500_000, 60: 8_000_000, 100: 10_000_000 },
+  1440: { 15: 4_000_000, 30: 7_000_000, 60: 12_000_000, 100: 16_000_000 },
 };
+const CAPS: Record<string, { h: number; fps: number }> = {
+  '1440p100': { h: 1440, fps: 100 }, '1440p60': { h: 1440, fps: 60 }, '1080p60': { h: 1080, fps: 60 }, '1080p30': { h: 1080, fps: 30 }, '720p30': { h: 720, fps: 30 },
+};
+export function streamQuality(cap?: string) {
+  const p = usePrefs.getState();
+  const c = (cap && CAPS[cap]) || { h: 1440, fps: 100 };
+  const h = Math.min(p.streamRes, c.h) as 720 | 1080 | 1440;
+  const fps = Math.min(p.streamFps, c.fps);
+  return { width: Math.round((h * 16) / 9), height: h, fps, bitrate: BITRATE[h]![fps] ?? BITRATE[h]![30]! };
+}
 
 export async function startStream(sourceId: string) {
   const e = engine;
@@ -418,8 +501,7 @@ export async function startStream(sourceId: string) {
   const prefs = usePrefs.getState();
   // the server steps quality down when today's share of the free allowance is filling up
   const cap = await api<{ streamCap: string }>('GET', '/voice/stream-cap').then((r) => r.streamCap).catch(() => '1080p60');
-  const preset = clampPreset(prefs.streamQuality as Preset, cap);
-  const q = STREAM_PRESETS[preset];
+  const q = streamQuality(cap);
   await window.mncord?.capture.selectSource(sourceId);
   const media = await navigator.mediaDevices.getDisplayMedia({
     video: { width: { ideal: q.width }, height: { ideal: q.height }, frameRate: { ideal: q.fps, max: q.fps } },
@@ -427,7 +509,7 @@ export async function startStream(sourceId: string) {
   });
   const video = media.getVideoTracks()[0];
   if (!video) return;
-  video.contentHint = q.fps >= 60 ? 'motion' : 'detail';
+  video.contentHint = q.fps >= 60 || prefs.streamMode === 'gaming' ? 'motion' : 'detail';
   await e.publish(video, 'screen', { maxBitrate: q.bitrate, maxFramerate: q.fps, degradation: q.fps >= 60 ? 'maintain-framerate' : 'maintain-resolution' });
   const audio = media.getAudioTracks()[0];
   if (audio) await e.publish(audio, 'screen_audio', { maxBitrate: 256_000 });
@@ -463,6 +545,17 @@ export async function stopWatching(userId: string) {
   await e.unsubscribe(userId, 'screen');
   await e.unsubscribe(userId, 'screen_audio');
 }
+
+/** ping to the voice server, refreshed every 3 s while in a call */
+export const usePing = create<{ ms: number | null }>(() => ({ ms: null }));
+setInterval(() => {
+  const e = engine;
+  if (!e || getV().status !== 'connected') {
+    if (usePing.getState().ms !== null) usePing.setState({ ms: null });
+    return;
+  }
+  void e.rtt().then((ms) => usePing.setState({ ms }));
+}, 3000);
 
 /** Live mic level for meters (dBFS), or null when not in voice. */
 export const micLevel = () => (mic ? mic.levelDb() : null);

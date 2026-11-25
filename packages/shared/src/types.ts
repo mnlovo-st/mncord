@@ -9,6 +9,20 @@ export interface User {
   status: 'online' | 'idle' | 'dnd' | 'invisible';
   /** badges: bit 1 = Dev (mncord developer) */
   flags?: number;
+  /** free profile cosmetics: avatar decoration, profile effect, name style, nameplate */
+  style?: ProfileStyle | null;
+}
+export interface ProfileStyle {
+  decoration?: string | null;
+  effect?: string | null;
+  nameStyle?: string | null;
+  nameplate?: string | null;
+}
+/** what someone is playing right now (detected on their PC) */
+export interface Activity {
+  name: string;
+  /** epoch ms */
+  startedAt: number;
 }
 export const USER_FLAG_DEV = 1;
 export interface SelfUser extends User {
@@ -145,6 +159,9 @@ export interface VoiceState {
   selfDeaf: boolean;
   selfVideo: boolean;
   selfStream: boolean;
+  /** a moderator muted / deafened them in this server */
+  serverMute?: boolean;
+  serverDeaf?: boolean;
 }
 
 export interface Invite {
@@ -186,6 +203,7 @@ export interface Profile extends User {
   accentColor: number | null;
   bannerKey?: string | null;
   createdAt: string;
+  activity?: Activity | null;
 }
 
 export type RelationshipType = 'friend' | 'blocked' | 'incoming' | 'outgoing';

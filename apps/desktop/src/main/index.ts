@@ -1,3 +1,4 @@
+import { execFile } from 'node:child_process';
 // mncord main process. (c) mnlovo
 import { app, BrowserWindow, crashReporter, desktopCapturer, ipcMain, Menu, nativeImage, net, protocol, safeStorage, session, shell, Tray, type WebContents } from 'electron';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -204,6 +205,27 @@ ipcMain.handle('win:set-autostart', (_e, on: unknown) => {
   app.setLoginItemSettings({ openAtLogin: on === true, args: ['--hidden'] });
 });
 ipcMain.handle('log:error', (_e, msg: unknown) => logLine('renderer', String(msg).slice(0, 4000)));
+ipcMain.handle('app:version', () => app.getVersion());
+
+// ── "Playing …": the names of running programs (no window titles, nothing else). The app matches them
+// against its list of games plus the ones you added; nothing leaves the PC unless it is a game.
+let procCache: { at: number; names: string[] } = { at: 0, names: [] };
+ipcMain.handle('games:running', async () => {
+  if (Date.now() - procCache.at < 10_000) return procCache.names;
+  const names = await new Promise<string[]>((resolve) => {
+    execFile('tasklist', ['/fo', 'csv', '/nh'], { windowsHide: true, maxBuffer: 4 * 1024 * 1024, timeout: 8000 }, (err, out) => {
+      if (err) return resolve([]);
+      const set = new Set<string>();
+      for (const line of String(out).split(/\r?\n/)) {
+        const m = /^"([^"]+)"/.exec(line);
+        if (m) set.add(m[1]!.toLowerCase());
+      }
+      resolve([...set]);
+    });
+  });
+  procCache = { at: Date.now(), names };
+  return names;
+});
 
 ipcMain.handle('auth:load', () => {
   try {
@@ -345,7 +367,18 @@ async function setupAutoUpdate(win: BrowserWindow) {
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.allowDowngrade = false;
-    autoUpdater.on('update-downloaded', (info) => win.webContents.send('update:ready', info.version));
+    // the app shows a "Downloading update" card (animated logo + progress + what's new)
+    const notes = (n: unknown) => (typeof n === 'string' ? n : Array.isArray(n) ? n.map((x: { note?: string | null }) => x?.note ?? '').join('\n') : '').slice(0, 20_000);
+    let lastInfo: { version: string; notes: string } | null = null;
+    autoUpdater.on('update-available', (info) => {
+      lastInfo = { version: info.version, notes: notes(info.releaseNotes) };
+      win.webContents.send('update:available', lastInfo);
+    });
+    autoUpdater.on('download-progress', (p) => win.webContents.send('update:progress', { percent: p.percent, bps: p.bytesPerSecond, transferred: p.transferred, total: p.total }));
+    autoUpdater.on('update-downloaded', (info) => {
+      win.webContents.send('update:ready', info.version);
+      win.webContents.send('update:info', { version: info.version, notes: notes(info.releaseNotes) || lastInfo?.notes || '' });
+    });
     // message only: the raw error carries full HTTP response headers
     autoUpdater.on('error', (e) => logLine('update', String(e?.message ?? e).split(/\r?\n/)[0]!.slice(0, 300)));
     ipcMain.handle('update:install', () => {
@@ -353,7 +386,8 @@ async function setupAutoUpdate(win: BrowserWindow) {
       autoUpdater.quitAndInstall(true, true);
     });
     await autoUpdater.checkForUpdates().catch(() => null); // errors are logged by the 'error' handler
-    setInterval(() => void autoUpdater.checkForUpdates().catch(() => {}), 4 * 3600_000);
+    // everyone picks new versions up quickly: check every 30 minutes
+    setInterval(() => void autoUpdater.checkForUpdates().catch(() => {}), 30 * 60_000);
   } catch (e) {
     logLine('update', String((e as Error)?.message ?? e).split(/\r?\n/)[0]!.slice(0, 300));
   }

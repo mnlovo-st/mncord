@@ -10,7 +10,7 @@ export function Modal({ open, onOpenChange, title, description, children, footer
   description?: string;
   children?: ReactNode;
   footer?: ReactNode;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
   closeLabel?: string;
 }) {
   return (
@@ -21,7 +21,7 @@ export function Modal({ open, onOpenChange, title, description, children, footer
           className={cn(
             'anim-pop fixed start-1/2 top-1/2 z-50 w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 rtl:translate-x-1/2',
             'overflow-hidden rounded-lg bg-bg text-text shadow-modal',
-            size === 'sm' ? 'max-w-[440px]' : 'max-w-[560px]',
+            size === 'sm' ? 'max-w-[440px]' : size === 'md' ? 'max-w-[560px]' : 'max-w-[980px]',
           )}
         >
           <div className="relative px-4 pb-3 pt-5">

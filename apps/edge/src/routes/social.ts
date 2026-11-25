@@ -283,7 +283,7 @@ export function socialRoutes(app: App, db: Db, hub: Hub) {
   app.get('/users/:id/profile', async (req): Promise<FullProfile> => {
     if (!/^[0-9a-f-]{36}$/.test(req.params.id)) throw notFound();
     const { rows } = await db.query<FullProfile & { createdAt: Date }>(
-      `select u.id, u.username::text as username, u.display_name as "displayName", u.avatar_key as "avatarKey", u.status, u.flags,
+      `select u.id, u.username::text as username, u.display_name as "displayName", u.avatar_key as "avatarKey", u.status, u.flags, u.style,
               u.bio, u.pronouns, u.accent_color as "accentColor", u.banner_key as "bannerKey", u.created_at as "createdAt"
          from users u where u.id = $1 and u.disabled_at is null`,
       [req.params.id],
@@ -315,6 +315,8 @@ export function socialRoutes(app: App, db: Db, hub: Hub) {
       accentColor: u.accentColor,
       bannerKey: u.bannerKey ?? null,
       flags: u.flags ?? 0,
+      style: u.style ?? null,
+      activity: hub.activityOf(req.params.id),
       createdAt: new Date(u.createdAt).toISOString(),
       mutualGuilds: req.params.id === req.userId ? [] : mutualGuilds.rows,
       mutualFriends: req.params.id === req.userId ? [] : mutualFriends.rows,

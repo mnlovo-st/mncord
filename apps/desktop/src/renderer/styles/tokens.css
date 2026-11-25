@@ -32,7 +32,7 @@
   --c-status-dnd: #e5484d;
   --c-status-offline: #7f8ba3;
   --c-status-streaming: #9d72ff;
-  --c-mention-bg: #2c2817;
+  --c-mention-bg: #1e2350;
   --c-focus-ring: #8cbcff;
   --c-accent-text: #a3a9ff;
 }
@@ -70,7 +70,7 @@
   --c-status-dnd: #d9363c;
   --c-status-offline: #747f94;
   --c-status-streaming: #7c4dff;
-  --c-mention-bg: #fdf3d9;
+  --c-mention-bg: #e3e6ff;
   --c-focus-ring: #1858c8;
   --c-accent-text: #3a41b8;
   color-scheme: light;
@@ -108,7 +108,7 @@
   --c-status-dnd: #e5484d;
   --c-status-offline: #7f8ba3;
   --c-status-streaming: #9d72ff;
-  --c-mention-bg: #1f1b0e;
+  --c-mention-bg: #141838;
   --c-focus-ring: #8cbcff;
   --c-accent-text: #a3a9ff;
 }

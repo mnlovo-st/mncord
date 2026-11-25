@@ -138,7 +138,7 @@ export function TitleBar({ app }: { app: boolean }) {
       <div className="flex min-w-0 flex-1 items-center justify-center gap-2 font-semibold text-text">{app ? <Where /> : null}</div>
       <div className="flex w-[200px] items-center justify-end gap-1">
         {app && <InboxButton />}
-        <a href="https://github.com/mnlovo-st/mncord#readme" target="_blank" rel="noreferrer" aria-label={t('titlebar.help')} title={t('titlebar.help')} className="grid size-7 place-items-center rounded-sm text-muted hover:bg-surface-hover hover:text-text [-webkit-app-region:no-drag]"><CircleHelp className="size-[18px]" /></a>
+        <a href="https://t.me/bscoolvi" target="_blank" rel="noreferrer" aria-label={t('titlebar.help')} title={t('titlebar.help')} className="grid size-7 place-items-center rounded-sm text-muted hover:bg-surface-hover hover:text-text [-webkit-app-region:no-drag]"><CircleHelp className="size-[18px]" /></a>
       </div>
     </div>
   );

@@ -1,12 +1,12 @@
-// UI sounds. Drop mnlovo's files into src/renderer/assets/sounds/<name>.(ogg|wav|mp3) and they are used
-// automatically; until then each sound has a short synthesized placeholder so nothing is silent.
+// UI sounds: mnlovo's own files in src/renderer/assets/sounds/<name>.mp3 (loudness-matched), each with a
+// short synthesized fallback. Volume and per-sound on/off live in Settings → Notifications.
 import { usePrefs } from './prefs';
 
 export type SoundName =
   | 'join' | 'leave' | 'mute' | 'unmute' | 'deafen' | 'undeafen'
   | 'message' | 'mention' | 'ring_in' | 'ring_out' | 'call_end'
   | 'stream_start' | 'stream_stop' | 'ptt_on' | 'ptt_off'
-  | 'disconnect' | 'reconnect' | 'startup';
+  | 'disconnect' | 'reconnect' | 'welcome';
 
 const files = import.meta.glob('../assets/sounds/*.{ogg,wav,mp3}', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const urlFor = (name: SoundName) => Object.entries(files).find(([path]) => path.split('/').pop()!.replace(/\.\w+$/, '') === name)?.[1];
@@ -30,11 +30,13 @@ const SYNTH: Record<SoundName, [number, number][]> = {
   ptt_off: [[900, 30]],
   disconnect: [[330, 120], [220, 200]],
   reconnect: [[220, 80], [330, 80], [440, 120]],
-  startup: [[392, 90], [523, 90], [659, 90], [784, 180]],
+  welcome: [[392, 90], [523, 90], [659, 90], [784, 180]],
 };
 
 let ctx: AudioContext | null = null;
-const volume = () => 0.5;
+/** files are loudness-matched (about -27 LUFS); the user's "App sounds" slider scales them */
+const volume = () => Math.max(0, Math.min(1, (usePrefs.getState().soundVolume ?? 70) / 100));
+const lastPlayed = new Map<SoundName, number>();
 
 function synth(name: SoundName) {
   ctx ??= new AudioContext();
@@ -67,6 +69,11 @@ function sinkAudio(url: string) {
 }
 
 export function playSound(name: SoundName) {
+  // a double click must not play the same sound twice on top of itself
+  const now = performance.now();
+  if (now - (lastPlayed.get(name) ?? -1e9) < 250) return;
+  lastPlayed.set(name, now);
+  if (volume() === 0 || usePrefs.getState().mutedSounds?.includes(name)) return;
   try {
     const url = urlFor(name);
     if (url) void sinkAudio(url).play().catch(() => {});
@@ -78,12 +85,16 @@ export function playSound(name: SoundName) {
 
 /** Loops a sound (ringtones) until the returned stop() is called. */
 export function loopSound(name: SoundName): () => void {
+  if (volume() === 0 || usePrefs.getState().mutedSounds?.includes(name)) return () => {};
   const url = urlFor(name);
   if (url) {
     const a = sinkAudio(url);
     a.loop = true;
     void a.play().catch(() => {});
-    return () => a.pause();
+    return () => {
+      a.pause();
+      a.src = '';
+    };
   }
   let stopped = false;
   const tick = () => {
@@ -96,3 +107,13 @@ export function loopSound(name: SoundName): () => void {
     stopped = true;
   };
 }
+
+/** plays once and resolves with the element so callers can sync to its timeline (the welcome animation) */
+export function playSoundEl(name: SoundName): HTMLAudioElement | null {
+  const url = urlFor(name);
+  if (!url) return null;
+  const a = sinkAudio(url);
+  if (volume() > 0) void a.play().catch(() => {});
+  return a;
+}
+export const SOUND_NAMES: SoundName[] = ['join', 'leave', 'mute', 'unmute', 'deafen', 'undeafen', 'message', 'mention', 'ring_in', 'ring_out', 'call_end', 'stream_start', 'stream_stop', 'ptt_on', 'ptt_off', 'disconnect', 'reconnect'];

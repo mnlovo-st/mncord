@@ -257,6 +257,19 @@ export function adminRoutes(app: App, db: Db, hub: Hub) {
         changes.push({ key: col, new: v });
       }
     });
+    // Move Members: drag someone to another voice channel, or disconnect them
+    if (input.voiceChannelId !== undefined) {
+      if (!has(perms, P.MOVE_MEMBERS) || (!self && !outranks)) throw forbidden();
+      const cur = hub.voiceChannelOf(uid);
+      if (!cur || cur.guildId !== ctx.guild.id) throw new HttpError(400, 'not_in_voice');
+      if (input.voiceChannelId === null) await kickFromVoice(cur.channelId, uid);
+      else {
+        const ch = await getChannel(db, input.voiceChannelId);
+        if (!ch || ch.guildId !== ctx.guild.id || ch.type !== 'voice') throw notFound('channel_not_found');
+        hub.dispatchToUser(uid, { t: 'VOICE_MOVE', d: { guildId: ctx.guild.id, channelId: ch.id } });
+      }
+      changes.push({ key: 'voice_channel', new: input.voiceChannelId });
+    }
     await audit(db, ctx.guild.id, req.userId, 'member_update', uid, changes, input.reason);
     // if they're in a voice channel of this server right now, apply mute/deafen/role changes live
     const inVoice = hub.voiceChannelOf(uid);
@@ -268,6 +281,7 @@ export function adminRoutes(app: App, db: Db, hub: Hub) {
         const p = computePermissions(fresh.guild, fresh.member, fresh.roles, ow);
         if (!has(p, P.CONNECT)) await kickFromVoice(inVoice.channelId, uid);
         else await applyVoicePermissions(inVoice.channelId, uid, { speak: has(p, P.SPEAK) && !mod?.mute, stream: has(p, P.STREAM), deaf: !!mod?.deaf });
+        await hub.refreshVoiceMod(uid, !!mod?.mute, !!mod?.deaf);
       }
     }
     const m = (await members(db, ctx.guild.id)).find((x) => x.userId === uid);

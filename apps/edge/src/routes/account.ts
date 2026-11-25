@@ -63,6 +63,10 @@ export function accountRoutes(app: App, db: Db, hub: Hub) {
       vals.push(p.customStatus ? JSON.stringify(p.customStatus) : null);
       sets.push(`custom_status = $${vals.length}`);
     }
+    if (p.style !== undefined) {
+      vals.push(p.style ? JSON.stringify(p.style) : null);
+      sets.push(`style = $${vals.length}`);
+    }
     const col = { displayName: 'display_name', bio: 'bio', pronouns: 'pronouns', locale: 'locale', status: 'status', accentColor: 'accent_color' } as const;
     for (const [k, c] of Object.entries(col)) {
       const v = p[k as keyof typeof p];
@@ -73,7 +77,12 @@ export function accountRoutes(app: App, db: Db, hub: Hub) {
     }
     if (sets.length) await db.query(`update users set ${sets.join(', ')} where id = $1`, vals);
     if (p.status) await hub.setStatus(req.userId, p.status);
-    return getSelf(db, req.userId);
+    const self = await getSelf(db, req.userId);
+    if (self && sets.length) {
+      const { id, username, displayName, avatarKey, flags, style } = self;
+      await hub.broadcastUser({ id, username, displayName, avatarKey, status: self.status, flags, style, accentColor: self.accentColor, bannerKey: self.bannerKey ?? null } as never);
+    }
+    return self;
   });
 
   app.patch('/users/@me/username', sensitive, async (req) => {

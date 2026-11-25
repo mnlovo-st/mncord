@@ -45,18 +45,32 @@ export class RtcEngine {
     return next;
   }
 
-  /** Cloudflare expects a fully gathered offer/answer (no trickle ICE). */
+  /**
+   * Cloudflare expects a gathered offer/answer (no trickle ICE). Waiting for "complete" can take seconds on
+   * PCs with virtual network adapters, so we go as soon as a public (srflx/relay) candidate exists; with
+   * max-bundle one good candidate is all the SFU needs. Hard cap 1.2 s.
+   */
   private gathered() {
     if (this.pc.iceGatheringState === 'complete') return Promise.resolve();
+    const sdp = this.pc.localDescription?.sdp ?? '';
+    if (/typ (srflx|relay)/.test(sdp)) return Promise.resolve();
     return new Promise<void>((resolve) => {
-      const done = () => {
-        if (this.pc.iceGatheringState === 'complete') {
-          this.pc.removeEventListener('icegatheringstatechange', done);
-          resolve();
-        }
+      let t: ReturnType<typeof setTimeout> | null = null;
+      const finish = () => {
+        this.pc.removeEventListener('icegatheringstatechange', onState);
+        this.pc.removeEventListener('icecandidate', onCand);
+        clearTimeout(cap);
+        if (t) clearTimeout(t);
+        resolve();
       };
-      this.pc.addEventListener('icegatheringstatechange', done);
-      setTimeout(resolve, 3000); // enough candidates by now; don't hang the call
+      const onState = () => this.pc.iceGatheringState === 'complete' && finish();
+      const onCand = (e: RTCPeerConnectionIceEvent) => {
+        if (!e.candidate) return finish();
+        if (/typ (srflx|relay)/.test(e.candidate.candidate) && !t) t = setTimeout(finish, 60);
+      };
+      this.pc.addEventListener('icegatheringstatechange', onState);
+      this.pc.addEventListener('icecandidate', onCand);
+      const cap = setTimeout(finish, 1200);
     });
   }
   private localDesc = (): SessionDescription => ({ type: this.pc.localDescription!.type as 'offer' | 'answer', sdp: this.pc.localDescription!.sdp });
@@ -82,7 +96,7 @@ export class RtcEngine {
       // Opus tuning lives in the answer's fmtp: our encoder follows what the receiver side asks for.
       const answer =
         source === 'mic'
-          ? { ...res.sessionDescription, sdp: tuneOpus(res.sessionDescription.sdp, tr.mid, { usedtx: 1, useinbandfec: 1, stereo: 0, maxaveragebitrate: opts.maxBitrate ?? 96_000, ...opts.opus }) }
+          ? { ...res.sessionDescription, sdp: tuneOpus(res.sessionDescription.sdp, tr.mid, { usedtx: 0, useinbandfec: 1, stereo: 0, maxaveragebitrate: opts.maxBitrate ?? 96_000, ...opts.opus }) }
           : source === 'screen_audio'
             ? { ...res.sessionDescription, sdp: tuneOpus(res.sessionDescription.sdp, tr.mid, { useinbandfec: 1, stereo: 1, 'sprop-stereo': 1, maxaveragebitrate: 256_000 }) }
             : res.sessionDescription;
@@ -98,6 +112,17 @@ export class RtcEngine {
       }
       return tr;
     });
+  }
+
+  /** round-trip time to the SFU in ms (null until connected) */
+  async rtt(): Promise<number | null> {
+    try {
+      const stats = await this.pc.getStats();
+      for (const r of stats.values()) if (r.type === 'candidate-pair' && (r as RTCIceCandidatePairStats).nominated && (r as RTCIceCandidatePairStats).currentRoundTripTime != null) return Math.round((r as RTCIceCandidatePairStats).currentRoundTripTime! * 1000);
+    } catch {
+      /* closed */
+    }
+    return null;
   }
 
   unpublish(source: MediaSource) {

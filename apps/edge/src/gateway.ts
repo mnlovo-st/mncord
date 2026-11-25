@@ -48,6 +48,7 @@ const Frame = z.discriminatedUnion('op', [
     selfStream: z.boolean().optional(),
   }),
   z.object({ op: z.literal('typing'), channelId: z.uuid() }),
+  z.object({ op: z.literal('activity'), activity: z.object({ name: z.string().trim().min(1).max(64), startedAt: z.number().int().min(0) }).nullable() }),
 ]);
 
 type Status = 'online' | 'idle' | 'dnd' | 'offline';
@@ -69,6 +70,7 @@ export class Hub {
   private conns = new Set<Conn>();
   private byUser = new Map<string, Set<Conn>>();
   private status = new Map<string, Status>(); // online users' visible status
+  private activity = new Map<string, { name: string; startedAt: number }>(); // what they're playing
   private guildMembers = new Map<string, Set<string>>(); // guild → online member ids
   private voice = new Map<string, VoiceState>(); // userId → state
   private calls = new Map<string, Call & { timer: ReturnType<typeof setTimeout> }>(); // channelId → ringing call
@@ -127,6 +129,16 @@ export class Hub {
       return;
     }
 
+    if (f.op === 'activity') {
+      const cur = this.activity.get(userId);
+      const next = f.activity ? { name: f.activity.name, startedAt: Math.min(f.activity.startedAt, Date.now()) } : null;
+      if ((cur?.name ?? null) === (next?.name ?? null)) return;
+      if (next) this.activity.set(userId, next);
+      else this.activity.delete(userId);
+      await this.broadcastPresence(userId, this.status.get(userId) ?? 'online');
+      return;
+    }
+
     if (f.op === 'voice_state') {
       const prev = this.voice.get(userId);
       if (f.channelId === null) {
@@ -137,7 +149,10 @@ export class Hub {
       const isDm = cp?.channel.type === 'dm' || cp?.channel.type === 'group_dm';
       if (!cp || cp.channel.guildId !== f.guildId || !(cp.channel.type === 'voice' || isDm) || !has(cp.perms, P.CONNECT)) return;
       if (prev && prev.channelId !== f.channelId) await this.leaveVoice(userId);
+      const mod = f.guildId ? (await this.db.query<{ m: boolean; d: boolean }>(`select server_mute as m, server_deaf as d from guild_members where guild_id = $1 and user_id = $2`, [f.guildId, userId])).rows[0] : undefined;
       const state: VoiceState = {
+        serverMute: !!mod?.m,
+        serverDeaf: !!mod?.d,
         userId,
         guildId: f.guildId,
         channelId: f.channelId,
@@ -187,7 +202,7 @@ export class Hub {
     const watch = new Set<string>([...relationships.filter((r) => r.type === 'friend').map((r) => r.id), ...privateChannels.flatMap((p) => p.recipients.map((u) => u.id))]);
     for (const gid of guildIds) for (const u of this.guildMembers.get(gid) ?? []) watch.add(u);
     watch.delete(userId);
-    const presences = [...watch].filter((u) => this.status.has(u)).map((u) => ({ userId: u, status: this.status.get(u)! }));
+    const presences = [...watch].filter((u) => this.status.has(u)).map((u) => ({ userId: u, status: this.status.get(u)!, activity: this.status.get(u) === 'offline' ? null : (this.activity.get(u) ?? null) }));
     const calls = [...this.calls.values()].filter((k) => dmIds.has(k.channelId)).map(({ timer: _t, ...k }) => k);
     const rs = await this.db.query<{ channelId: string; lastReadMessageId: string | null; mentionCount: number }>(
       `select channel_id as "channelId", last_read_message_id as "lastReadMessageId", mention_count as "mentionCount" from read_states where user_id = $1`,
@@ -202,7 +217,20 @@ export class Hub {
     const targets = new Set<string>(await friendIds(this.db, userId));
     for (const [, users] of this.guildMembers) if (users.has(userId)) for (const u of users) targets.add(u);
     targets.delete(userId);
-    for (const u of targets) this.dispatchToUser(u, { t: 'PRESENCE_UPDATE', d: { userId, status } });
+    const activity = status === 'offline' ? null : (this.activity.get(userId) ?? null);
+    for (const u of targets) this.dispatchToUser(u, { t: 'PRESENCE_UPDATE', d: { userId, status, activity } });
+  }
+
+  /** profile changed (avatar, name, banner, badges, style): everyone who can see you gets it now */
+  async broadcastUser(user: import('@mncord/shared').User) {
+    const targets = new Set<string>(await friendIds(this.db, user.id));
+    // everyone online in a server you share (you may not be connected yourself right now)
+    for (const gid of await guildIdsForUser(this.db, user.id)) for (const u of this.guildMembers.get(gid) ?? []) targets.add(u);
+    for (const u of await this.db.query<{ id: string }>(`select distinct r.user_id as id from channel_recipients r join channel_recipients me on me.channel_id = r.channel_id where me.user_id = $1`, [user.id]).then((x) => x.rows).catch(() => [])) targets.add(u.id);
+    for (const u of targets) this.dispatchToUser(u, { t: 'USER_UPDATE', d: user });
+  }
+  activityOf(userId: string) {
+    return this.status.get(userId) && this.status.get(userId) !== 'offline' ? (this.activity.get(userId) ?? null) : null;
   }
 
   async setStatus(userId: string, status: 'online' | 'idle' | 'dnd' | 'invisible') {
@@ -239,6 +267,7 @@ export class Hub {
       await this.leaveVoice(userId);
       await this.broadcastPresence(userId, 'offline');
       this.status.delete(userId);
+      this.activity.delete(userId);
       for (const [gid, users] of this.guildMembers) {
         users.delete(userId);
         if (users.size === 0) this.guildMembers.delete(gid);
@@ -294,6 +323,14 @@ export class Hub {
   }
   voiceUsersIn(channelId: string): string[] {
     return [...this.voice.values()].filter((v) => v.channelId === channelId).map((v) => v.userId);
+  }
+  /** a moderator changed their server mute / deafen: everyone sees it on their tile */
+  async refreshVoiceMod(userId: string, serverMute: boolean, serverDeaf: boolean) {
+    const v = this.voice.get(userId);
+    if (!v) return;
+    const next = { ...v, serverMute, serverDeaf };
+    this.voice.set(userId, next);
+    await this.dispatchVoice(next);
   }
   /** a moderator removed them from voice */
   forceLeaveVoice(userId: string) {

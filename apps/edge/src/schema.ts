@@ -13,7 +13,7 @@ const ts = (name: string) => `${name} text not null default ${NOW}`;
 const NORM_CHARS: [string, string][] = [['أ', 'ا'], ['إ', 'ا'], ['آ', 'ا'], ['ٱ', 'ا'], ['ى', 'ي'], ['ة', 'ه'], ['ـ', ''], ['ً', ''], ['ٌ', ''], ['ٍ', ''], ['َ', ''], ['ُ', ''], ['ِ', ''], ['ّ', ''], ['ْ', ''], ['ٰ', '']];
 const NORM = NORM_CHARS.reduce((acc, [a, b]) => `replace(${acc}, '${a}', '${b}')`, 'content');
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 /** upgrades for databases created by an older version (run in order, each once) */
 export const MIGRATIONS: Record<number, string[]> = {
   2: [
@@ -28,6 +28,10 @@ export const MIGRATIONS: Record<number, string[]> = {
     `alter table users add column flags integer not null default 0`,
     // the Dev badge: mnlovo's own account only
     `update users set flags = flags | 1 where lower(username) = 'mnlovo'`,
+  ],
+  4: [
+    // free profile cosmetics (decoration, effect, name style, nameplate) as JSON
+    `alter table users add column style text`,
   ],
 };
 export const SCHEMA = `
@@ -50,6 +54,7 @@ create table if not exists users (
   deletion_requested_at text,
   approved_at text,
   flags integer not null default 0,
+  style text,
   ${ts('created_at')}, ${ts('updated_at')}
 );
 

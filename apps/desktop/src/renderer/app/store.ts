@@ -1,5 +1,5 @@
 // Client state. The gateway patches it; screens read it.
-import type { Call, Channel, Guild, Message, PrivateChannel, ReadState, Relationship, SelfUser, VoiceState } from '@mncord/shared';
+import type { Activity, Call, Channel, Guild, Message, PrivateChannel, ReadState, Relationship, SelfUser, User, VoiceState } from '@mncord/shared';
 import { create } from 'zustand';
 
 export interface PendingMessage extends Message {
@@ -28,6 +28,10 @@ interface State {
   typing: Record<string, Record<string, number>>; // channel → user → until
   speaking: Record<string, boolean>;
   names: Record<string, string>; // userId → display name cache
+  /** everyone we've seen (avatar, badges, profile style), kept fresh by USER_UPDATE */
+  users: Record<string, User>;
+  /** what people are playing */
+  activities: Record<string, Activity>;
 }
 
 export const useStore = create<State>(() => ({
@@ -52,6 +56,8 @@ export const useStore = create<State>(() => ({
   typing: {},
   speaking: {},
   names: {},
+  users: {},
+  activities: {},
 }));
 
 export const set = useStore.setState;
@@ -81,13 +87,16 @@ export function addChannel(c: Channel) {
 }
 
 /** Adds or replaces (matching id or nonce) a message, keeping order. */
-export function putMessage(m: PendingMessage) {
+export function putMessage(raw: PendingMessage) {
+  // never let a message with a missing list crash the chat
+  const m = { ...raw, attachments: raw.attachments ?? [], reactions: raw.reactions ?? [], mentionIds: raw.mentionIds ?? [] } as PendingMessage;
   set((s) => {
     const list = s.messages[m.channelId] ?? [];
     const i = list.findIndex((x) => x.id === m.id || (m.nonce && x.nonce === m.nonce));
     const next = i >= 0 ? list.map((x, j) => (j === i ? m : x)) : [...list, m];
     const names = m.author ? { ...s.names, [m.author.id]: m.author.displayName ?? m.author.username } : s.names;
-    return { messages: { ...s.messages, [m.channelId]: next }, names };
+    const users = m.author ? { ...s.users, [m.author.id]: { ...s.users[m.author.id], ...m.author } } : s.users;
+    return { messages: { ...s.messages, [m.channelId]: next }, names, users };
   });
 }
 
@@ -139,5 +148,20 @@ export function bumpLastMessage(channelId: string, guildId: string | null, messa
     }
     const pc = s.privateChannels[channelId];
     return pc ? { privateChannels: { ...s.privateChannels, [channelId]: { ...pc, lastMessageId: messageId } } } : {};
+  });
+}
+
+/** merge users into the cache (names + avatars + badges + style) */
+export function rememberUsers(list: (User | null | undefined)[]) {
+  const ok = list.filter((u): u is User => !!u && !!u.id);
+  if (!ok.length) return;
+  set((s) => {
+    const users = { ...s.users };
+    const names = { ...s.names };
+    for (const u of ok) {
+      users[u.id] = { ...users[u.id], ...u };
+      names[u.id] = u.displayName ?? u.username;
+    }
+    return { users, names };
   });
 }

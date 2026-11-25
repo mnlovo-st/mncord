@@ -17,7 +17,7 @@ import {
 } from '@mncord/shared';
 import type { Queryable } from './db.ts';
 
-const USER_COLS = `u.id, u.username::text as username, u.display_name as "displayName", u.avatar_key as "avatarKey", u.status, u.flags`;
+const USER_COLS = `u.id, u.username::text as username, u.display_name as "displayName", u.avatar_key as "avatarKey", u.status, u.flags, u.style`;
 
 export async function getSelf(db: Queryable, userId: string): Promise<SelfUser | null> {
   const { rows } = await db.query<SelfUser>(
@@ -192,7 +192,7 @@ export async function members(db: Queryable, guildId: string, limit = 1000): Pro
     nick: r.nick,
     roleIds: r.roleIds ?? [],
     joinedAt: new Date(r.joinedAt).toISOString(),
-    user: { id: r.id, username: r.username, displayName: r.displayName, avatarKey: r.avatarKey, status: r.status, flags: r.flags ?? 0 },
+    user: { id: r.id, username: r.username, displayName: r.displayName, avatarKey: r.avatarKey, status: r.status, flags: r.flags ?? 0, style: r.style ?? null },
   }));
 }
 
@@ -200,7 +200,7 @@ export const MESSAGE_SELECT = `
   select m.id, m.channel_id as "channelId", m.content, m.type, m.reply_to_id as "replyToId", m.nonce,
          m.edited_at as "editedAt", m.created_at as "createdAt", m.pinned, m.mention_everyone as "mentionEveryone",
          u.id as "authorId", u.username::text as "authorUsername", u.display_name as "authorDisplayName",
-         u.avatar_key as "authorAvatarKey", u.status as "authorStatus", u.flags as "authorFlags"
+         u.avatar_key as "authorAvatarKey", u.status as "authorStatus", u.flags as "authorFlags", u.style as "authorStyle"
     from messages m left join users u on u.id = m.author_id`;
 
 export interface MessageRow {
@@ -220,10 +220,11 @@ export interface MessageRow {
   authorAvatarKey: string | null;
   authorStatus: User['status'] | null;
   authorFlags: number | null;
+  authorStyle?: User['style'];
 }
 
-const authorOf = (r: { authorId: string | null; authorUsername: string | null; authorDisplayName: string | null; authorAvatarKey: string | null; authorStatus: User['status'] | null; authorFlags?: number | null }): User | null =>
-  r.authorId ? { id: r.authorId, username: r.authorUsername!, displayName: r.authorDisplayName, avatarKey: r.authorAvatarKey, status: r.authorStatus ?? 'online', flags: r.authorFlags ?? 0 } : null;
+const authorOf = (r: { authorId: string | null; authorUsername: string | null; authorDisplayName: string | null; authorAvatarKey: string | null; authorStatus: User['status'] | null; authorFlags?: number | null; authorStyle?: User['style'] }): User | null =>
+  r.authorId ? { id: r.authorId, username: r.authorUsername!, displayName: r.authorDisplayName, avatarKey: r.authorAvatarKey, status: r.authorStatus ?? 'online', flags: r.authorFlags ?? 0, style: r.authorStyle ?? null } : null;
 
 /** Bare message (no attachments/reactions). Use hydrate() for the full shape. */
 export function toMessage(r: MessageRow): Message {
@@ -303,12 +304,12 @@ export async function privateChannel(db: Queryable, channelId: string, viewerId:
 }
 
 export async function relationshipsFor(db: Queryable, userId: string): Promise<Relationship[]> {
-  const { rows } = await db.query<{ id: string; type: Relationship['type']; nickname: string | null; username: string; displayName: string | null; avatarKey: string | null; status: User['status']; flags: number }>(
-    `select r.target_id as id, r.type, r.nickname, u.username::text as username, u.display_name as "displayName", u.avatar_key as "avatarKey", u.status, u.flags
+  const { rows } = await db.query<{ id: string; type: Relationship['type']; nickname: string | null; username: string; displayName: string | null; avatarKey: string | null; status: User['status']; flags: number; style: User['style'] }>(
+    `select r.target_id as id, r.type, r.nickname, u.username::text as username, u.display_name as "displayName", u.avatar_key as "avatarKey", u.status, u.flags, u.style
        from relationships r join users u on u.id = r.target_id where r.user_id = $1 order by r.created_at`,
     [userId],
   );
-  return rows.map((r) => ({ id: r.id, type: r.type, nickname: r.nickname, user: { id: r.id, username: r.username, displayName: r.displayName, avatarKey: r.avatarKey, status: r.status, flags: r.flags ?? 0 } }));
+  return rows.map((r) => ({ id: r.id, type: r.type, nickname: r.nickname, user: { id: r.id, username: r.username, displayName: r.displayName, avatarKey: r.avatarKey, status: r.status, flags: r.flags ?? 0, style: r.style ?? null } }));
 }
 
 export async function publicUser(db: Queryable, userId: string): Promise<User | null> {

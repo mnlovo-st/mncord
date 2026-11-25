@@ -1,11 +1,11 @@
-import { Headphones, HeadphoneOff, Mic, MicOff, MonitorUp, PhoneOff, Settings, Signal, Sparkles, Video } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { ChevronDown, Headphones, HeadphoneOff, Mic, MicOff, MonitorUp, PhoneOff, Settings, Signal, Sparkles, Video, VideoOff } from 'lucide-react';
+import { useRef, type ReactNode } from 'react';
 import { Avatar, type Status } from './Avatar';
 import { Tag } from './Badge';
 import { Tooltip } from './Tooltip';
 import { cn } from './cn';
 
-function IconToggle({ label, active, danger, onClick, children }: { label: string; active?: boolean; danger?: boolean; onClick?: () => void; children: ReactNode }) {
+function IconToggle({ label, active, danger, onClick, children, className }: { label: string; active?: boolean; danger?: boolean; onClick?: () => void; children: ReactNode; className?: string }) {
   return (
     <Tooltip content={label}>
       <button
@@ -16,6 +16,7 @@ function IconToggle({ label, active, danger, onClick, children }: { label: strin
         className={cn(
           'grid size-8 place-items-center rounded-sm transition-colors duration-(--motion-fast)',
           danger ? 'text-danger-text hover:bg-surface-hover' : 'text-muted hover:bg-surface-hover hover:text-text',
+          className,
         )}
       >
         {children}
@@ -24,10 +25,29 @@ function IconToggle({ label, active, danger, onClick, children }: { label: strin
   );
 }
 
-export function UserPanel({ name, tag, status, muted, deafened, onMute, onDeafen, onSettings, labels, avatarSrc, onAvatarClick }: {
+/** icon + small arrow, like Discord's mic / headphone buttons (arrow opens the device menu) */
+function SplitToggle({ label, menuLabel, danger, onClick, onMenu, children }: { label: string; menuLabel: string; danger?: boolean; onClick: () => void; onMenu?: (el: HTMLElement) => void; children: ReactNode }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  return (
+    <div className={cn('flex h-8 items-center rounded-sm transition-colors', danger ? 'text-danger-text' : 'text-muted')}>
+      <Tooltip content={label}>
+        <button type="button" aria-label={label} aria-pressed={danger} onClick={onClick} onContextMenu={(e) => { e.preventDefault(); if (ref.current) onMenu?.(ref.current); }} className={cn('grid h-8 w-7 place-items-center rounded-s-sm hover:bg-surface-hover', !danger && 'hover:text-text', !onMenu && 'rounded-e-sm')}>{children}</button>
+      </Tooltip>
+      {onMenu && (
+        <Tooltip content={menuLabel}>
+          <button ref={ref} type="button" aria-label={menuLabel} aria-haspopup="menu" onClick={() => ref.current && onMenu(ref.current)} className="-ms-0.5 grid h-8 w-3.5 place-items-center rounded-e-sm hover:bg-surface-hover hover:text-text"><ChevronDown className="size-3" strokeWidth={2.5} /></button>
+        </Tooltip>
+      )}
+    </div>
+  );
+}
+
+export function UserPanel({ name, nameNode, tag, status, muted, deafened, onMute, onDeafen, onSettings, labels, avatarSrc, decoration, onAvatarClick, onMicMenu, onOutputMenu, plate }: {
   avatarSrc?: string;
-  onAvatarClick?: () => void;
+  decoration?: string | null;
+  onAvatarClick?: (el: HTMLElement) => void;
   name: string;
+  nameNode?: ReactNode;
   tag: string;
   status: Status;
   muted: boolean;
@@ -35,65 +55,79 @@ export function UserPanel({ name, tag, status, muted, deafened, onMute, onDeafen
   onMute: () => void;
   onDeafen: () => void;
   onSettings?: () => void;
-  labels: { mute: string; unmute: string; deafen: string; undeafen: string; settings: string; status: string };
+  onMicMenu?: (el: HTMLElement) => void;
+  onOutputMenu?: (el: HTMLElement) => void;
+  plate?: string;
+  labels: { mute: string; unmute: string; deafen: string; undeafen: string; settings: string; status: string; inputOptions: string; outputOptions: string };
 }) {
   return (
-    <div className="flex h-14 items-center gap-2 bg-bg-deep/60 px-2">
-      <button type="button" onClick={onAvatarClick} className="flex min-w-0 flex-1 items-center gap-2 rounded-sm p-1 text-start hover:bg-surface-hover">
-        <Avatar name={name} src={avatarSrc} size={32} status={status} statusLabel={labels.status} cutout="border-bg-deep" />
+    <div className={cn('flex h-[52px] items-center gap-0.5 bg-bg-deep/70 ps-2 pe-1.5', plate)}>
+      <button type="button" onClick={(e) => onAvatarClick?.(e.currentTarget)} className="flex min-w-0 flex-1 items-center gap-2 rounded-sm py-1 ps-0.5 pe-1 text-start hover:bg-surface-hover">
+        <Avatar name={name} src={avatarSrc} size={32} status={status} statusLabel={labels.status} cutout="border-bg-deep" decoration={decoration} />
         <span className="min-w-0 leading-tight">
-          <span className="block truncate text-sm font-semibold text-text">{name}</span>
+          <span className="block truncate text-sm font-semibold text-text">{nameNode ?? name}</span>
           <span className="block truncate text-xs text-muted">{tag}</span>
         </span>
       </button>
-      <IconToggle label={muted ? labels.unmute : labels.mute} active={muted} danger={muted} onClick={onMute}>
+      <SplitToggle label={muted ? labels.unmute : labels.mute} menuLabel={labels.inputOptions} danger={muted} onClick={onMute} onMenu={onMicMenu}>
         {muted ? <MicOff className="size-5" /> : <Mic className="size-5" />}
-      </IconToggle>
-      <IconToggle label={deafened ? labels.undeafen : labels.deafen} active={deafened} danger={deafened} onClick={onDeafen}>
+      </SplitToggle>
+      <SplitToggle label={deafened ? labels.undeafen : labels.deafen} menuLabel={labels.outputOptions} danger={deafened} onClick={onDeafen} onMenu={onOutputMenu}>
         {deafened ? <HeadphoneOff className="size-5" /> : <Headphones className="size-5" />}
-      </IconToggle>
-      <IconToggle label={labels.settings} onClick={onSettings}><Settings className="size-5" /></IconToggle>
+      </SplitToggle>
+      <IconToggle label={labels.settings} onClick={onSettings} className="w-7 hover:[&>svg]:rotate-45 [&>svg]:transition-transform"><Settings className="size-5" /></IconToggle>
     </div>
   );
 }
 
-export function VoiceConnectedPanel({ channel, labels, onDisconnect, onNoise, onCamera, onScreen, camera, streaming }: {
+export function VoiceConnectedPanel({ channel, labels, onDisconnect, onNoise, onCamera, onScreen, onOpen, camera, streaming, noiseOn, ping, connecting }: {
   channel: string;
   onCamera?: () => void;
   onScreen?: () => void;
+  onOpen?: () => void;
   camera?: boolean;
   streaming?: boolean;
+  noiseOn?: boolean;
+  ping?: number | null;
+  connecting?: boolean;
   onDisconnect?: () => void;
   onNoise?: () => void;
-  labels: { connected: string; disconnect: string; camera: string; screen: string; noise: string; ping: string };
+  labels: { connected: string; disconnect: string; camera: string; cameraOff: string; screen: string; noise: string; ping: string };
 }) {
+  const tone = connecting ? 'text-warning' : ping == null || ping < 120 ? 'text-online' : ping < 250 ? 'text-warning' : 'text-danger';
+  const btn = 'grid h-8 place-items-center rounded-md transition-colors';
   return (
-    <div className="border-b border-border bg-bg-deep/60 px-2 py-2">
-      <div className="flex items-center gap-2">
-        <Tooltip content={labels.ping}><Signal aria-label={labels.ping} className="size-4 text-online" /></Tooltip>
-        <div className="min-w-0 flex-1 leading-tight">
-          <p className="text-sm font-semibold text-online">{labels.connected}</p>
-          <p className="truncate text-xs text-muted">{channel}</p>
-        </div>
-        <IconToggle label={labels.noise} onClick={onNoise}><Sparkles className="size-5 text-accent-text" /></IconToggle>
+    <div className="border-b border-border bg-bg-deep/70 px-2 pb-2 pt-1.5">
+      <div className="flex items-center gap-1.5">
+        <Tooltip content={labels.ping}><Signal aria-label={labels.ping} className={cn('size-4 shrink-0', tone)} /></Tooltip>
+        <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-start leading-tight">
+          <p className={cn('text-sm font-semibold', tone)}>{labels.connected}</p>
+          <p className="truncate text-xs text-muted hover:text-text hover:underline">{channel}</p>
+        </button>
+        <IconToggle label={labels.noise} onClick={onNoise} active={noiseOn}><Sparkles className={cn('size-[18px]', noiseOn ? 'text-accent-text' : 'text-faint')} /></IconToggle>
         <IconToggle label={labels.disconnect} onClick={onDisconnect}><PhoneOff className="size-5" /></IconToggle>
       </div>
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <button type="button" aria-pressed={camera} onClick={onCamera} className={cn('flex h-8 items-center justify-center gap-1.5 rounded-sm text-sm', camera ? 'bg-text text-bg' : 'bg-surface-raised text-text hover:bg-surface-selected')}><Video className="size-4" />{labels.camera}</button>
-        <button type="button" aria-pressed={streaming} onClick={onScreen} className={cn('flex h-8 items-center justify-center gap-1.5 rounded-sm text-sm', streaming ? 'bg-danger-solid text-on-danger' : 'bg-surface-raised text-text hover:bg-surface-selected')}><MonitorUp className="size-4" />{labels.screen}</button>
+      <div className="mt-1.5 grid grid-cols-2 gap-2">
+        <Tooltip content={camera ? labels.cameraOff : labels.camera}>
+          <button type="button" aria-label={camera ? labels.cameraOff : labels.camera} aria-pressed={camera} onClick={onCamera} className={cn(btn, camera ? 'bg-text text-bg' : 'bg-surface-raised text-text hover:bg-surface-selected')}>{camera ? <Video className="size-5" /> : <VideoOff className="size-5" />}</button>
+        </Tooltip>
+        <Tooltip content={labels.screen}>
+          <button type="button" aria-label={labels.screen} aria-pressed={streaming} onClick={onScreen} className={cn(btn, streaming ? 'bg-online text-on-chrome' : 'bg-surface-raised text-text hover:bg-surface-selected')}><MonitorUp className="size-5" /></button>
+        </Tooltip>
       </div>
     </div>
   );
 }
 
-export function VoiceUser({ name, speaking, muted, live, self }: { name: string; speaking?: boolean; muted?: boolean; live?: boolean; self?: boolean }) {
+export function VoiceUser({ name, avatarSrc, decoration, speaking, muted, deafened, serverMuted, live, self, onClick }: { name: string; avatarSrc?: string; decoration?: string | null; speaking?: boolean; muted?: boolean; deafened?: boolean; serverMuted?: boolean; live?: boolean; self?: boolean; onClick?: (e: React.MouseEvent) => void }) {
   return (
-    <li className="flex h-7 items-center gap-2 rounded-sm px-1 text-sm text-muted hover:bg-surface-hover hover:text-text">
-      <Avatar name={name} size={24} speaking={speaking} self={self} />
-      <span className="truncate">{name}</span>
+    <li onClick={onClick} className="flex h-8 cursor-pointer items-center gap-2 rounded-sm ps-1 pe-1.5 text-sm text-muted hover:bg-surface-hover hover:text-text">
+      <Avatar name={name} src={avatarSrc} size={24} speaking={speaking} self={self} decoration={decoration} />
+      <span className={cn('truncate', speaking && 'text-text')}>{name}</span>
       <span className="ms-auto flex items-center gap-1">
-        {muted && <MicOff aria-label="muted" className="size-3.5 text-danger-text" />}
         {live && <Tag tone="live">Live</Tag>}
+        {muted && <MicOff aria-label="muted" className={cn('size-3.5', serverMuted ? 'text-danger-text' : 'text-faint')} />}
+        {deafened && <HeadphoneOff aria-label="deafened" className="size-3.5 text-faint" />}
       </span>
     </li>
   );

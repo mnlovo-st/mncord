@@ -54,7 +54,7 @@ const JSON_KEYS = new Set([
   'forwardedFrom', 'forwarded_from', 'mentionRoles', 'mention_roles', 'appliedTags', 'applied_tags', 'keywords',
   'guildFolders', 'guild_folders', 'keybinds', 'streamerMode', 'streamer_mode', 'onboarding', 'triggerMeta',
   'trigger_meta', 'actions', 'exemptRoles', 'exempt_roles', 'exemptChannels', 'exempt_channels', 'recipients',
-  'backupCodesHash', 'backup_codes_hash', 'backup', 'userIds', 'ids', 'emojis', 'reactions', 'attachments', 'mentions',
+  'backupCodesHash', 'backup_codes_hash', 'backup', 'userIds', 'ids', 'emojis', 'reactions', 'attachments', 'mentions', 'style', 'authorStyle',
 ]);
 // Boolean columns/aliases (SQLite stores 0/1).
 const BOOL_KEYS = new Set([

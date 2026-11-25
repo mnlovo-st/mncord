@@ -1,5 +1,5 @@
 // Realtime gateway protocol (JSON over WebSocket).
-import type { Call, Channel, MediaSource, ReadState, Guild, Member, Message, PrivateChannel, Relationship, SelfUser, User, VoiceState } from './types.ts';
+import type { Activity, Call, Channel, MediaSource, ReadState, Guild, Member, Message, PrivateChannel, Relationship, SelfUser, User, VoiceState } from './types.ts';
 
 export const GATEWAY_VERSION = 1;
 export const HEARTBEAT_MS = 41_000;
@@ -9,7 +9,8 @@ export type ClientFrame =
   | { op: 'resume'; token: string; sessionId: string; seq: number }
   | { op: 'heartbeat'; seq: number }
   | { op: 'voice_state'; guildId: string | null; channelId: string | null; selfMute: boolean; selfDeaf: boolean; selfVideo?: boolean; selfStream?: boolean }
-  | { op: 'typing'; channelId: string };
+  | { op: 'typing'; channelId: string }
+  | { op: 'activity'; activity: Activity | null };
 
 export interface ReadyPayload {
   sessionId: string;
@@ -18,7 +19,7 @@ export interface ReadyPayload {
   voiceStates: VoiceState[];
   relationships: Relationship[];
   privateChannels: PrivateChannel[];
-  presences: { userId: string; status: 'online' | 'idle' | 'dnd' | 'offline' }[];
+  presences: { userId: string; status: 'online' | 'idle' | 'dnd' | 'offline'; activity?: Activity | null }[];
   calls: Call[];
   readStates: ReadState[];
   heartbeatMs: number;
@@ -41,7 +42,8 @@ export type DispatchEvent =
   | { t: 'READ_STATE_UPDATE'; d: ReadState }
   | { t: 'TYPING_START'; d: { channelId: string; userId: string; at: number } }
   | { t: 'VOICE_STATE_UPDATE'; d: VoiceState & { left?: boolean } }
-  | { t: 'PRESENCE_UPDATE'; d: { userId: string; status: 'online' | 'idle' | 'dnd' | 'offline' } }
+  | { t: 'PRESENCE_UPDATE'; d: { userId: string; status: 'online' | 'idle' | 'dnd' | 'offline'; activity?: Activity | null } }
+  | { t: 'VOICE_MOVE'; d: { guildId: string | null; channelId: string } }
   | { t: 'RELATIONSHIP_ADD'; d: Relationship }
   | { t: 'RELATIONSHIP_REMOVE'; d: { id: string } }
   | { t: 'PRIVATE_CHANNEL_CREATE'; d: PrivateChannel }
