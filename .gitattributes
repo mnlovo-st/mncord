@@ -1,0 +1,9 @@
+# Keep LF everywhere: shell scripts and Docker files must run on Linux servers
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.jpg binary
+*.woff2 binary
+*.ogg binary
+*.wav binary
+*.mp3 binary
