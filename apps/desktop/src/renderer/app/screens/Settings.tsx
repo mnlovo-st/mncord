@@ -6,7 +6,7 @@ import { Check, Copy, KeyRound, LogOut, Monitor, ShieldCheck, Smartphone, X } fr
 import QRCode from 'qrcode';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { createMicChain, DEFAULT_MIC, type MicChain, type Suppression } from '../../media/micChain';
+import { createMicChain, createRawMic, DEFAULT_MIC, type MicChain, type Suppression } from '../../media/micChain';
 import { Avatar } from '../../ui/Avatar';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
@@ -529,10 +529,12 @@ function VoiceTab() {
     let live = true;
     void (async () => {
       const raw = await navigator.mediaDevices.getUserMedia({
-        audio: { deviceId: p.inputDeviceId !== 'default' ? { ideal: p.inputDeviceId } : undefined, echoCancellation: true, noiseSuppression: false, autoGainControl: false, sampleRate: 48000 },
+        audio: p.rawMic
+          ? { deviceId: p.inputDeviceId !== 'default' ? { ideal: p.inputDeviceId } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false, sampleRate: 48000 }
+          : { deviceId: p.inputDeviceId !== 'default' ? { ideal: p.inputDeviceId } : undefined, echoCancellation: true, noiseSuppression: false, autoGainControl: false, sampleRate: 48000 },
       });
       if (!live) return raw.getTracks().forEach((x) => x.stop());
-      chain.current = await createMicChain(raw, { ...DEFAULT_MIC, ...p.mic, suppression: p.suppression });
+      chain.current = p.rawMic ? await createRawMic(raw) : await createMicChain(raw, { ...DEFAULT_MIC, ...p.mic, suppression: p.suppression });
       chain.current.setMonitoring(monitor);
       const tick = () => {
         if (chain.current) setLevel(Math.max(0, Math.min(100, ((chain.current.levelDb() + 70) / 70) * 100)));
@@ -615,11 +617,16 @@ function VoiceTab() {
       </Section>
       <Section title={t('vs.advanced')}>
         <div className="grid gap-4">
+          <div className="rounded-md border border-accent/40 bg-mention p-3">
+            <Switch label={t('vs.raw')} description={t('vs.rawSub')} checked={p.rawMic} onCheckedChange={(v) => setPrefs({ rawMic: v })} />
+          </div>
+          <div className={cn('grid gap-4', p.rawMic && 'pointer-events-none opacity-40')} aria-disabled={p.rawMic}>
           <Switch label={t('vs.echo')} checked={p.echoCancellation} onCheckedChange={(v) => setPrefs({ echoCancellation: v })} />
           <Switch label={t('vs.agc')} checked={p.autoGain} onCheckedChange={(v) => setPrefs({ autoGain: v })} />
           <Switch label={t('vs.highpass')} checked={(p.mic.highpassHz ?? DEFAULT_MIC.highpassHz) > 0} onCheckedChange={(v) => setPrefs({ mic: { ...p.mic, highpassHz: v ? 80 : 0 } })} />
           <Switch label={t('vs.compressor')} checked={p.mic.compressor?.enabled ?? DEFAULT_MIC.compressor.enabled} onCheckedChange={(v) => setPrefs({ mic: { ...p.mic, compressor: { ...DEFAULT_MIC.compressor, ...p.mic.compressor, enabled: v } } })} />
           <Switch label={t('vs.limiter')} checked={p.mic.limiter?.enabled ?? DEFAULT_MIC.limiter.enabled} onCheckedChange={(v) => setPrefs({ mic: { ...p.mic, limiter: { ...DEFAULT_MIC.limiter, ...p.mic.limiter, enabled: v } } })} />
+          </div>
           {(['lowDb', 'midDb', 'highDb'] as const).map((k) => (
             <Slider key={k} label={t(`vs.eq${k === 'lowDb' ? 'Low' : k === 'midDb' ? 'Mid' : 'High'}`)} value={p.mic.eq?.[k] ?? DEFAULT_MIC.eq[k]} min={-12} max={12} step={0.5} format={(v) => `${v > 0 ? '+' : ''}${v} dB`}
               onValueChange={(v) => setPrefs({ mic: { ...p.mic, eq: { ...DEFAULT_MIC.eq, ...p.mic.eq, [k]: v } } })} />

@@ -51,7 +51,7 @@ const en = {
   },
   vs: {
     inputMode: 'Input mode', vad: 'Voice activity', ptt: 'Push to talk', pttKey: 'Shortcut', pttRecord: 'Press a key or mouse button…', pttRelease: 'Release delay', pttGlobal: 'Works while games are focused.',
-    echo: 'Echo cancellation', agc: 'Automatic gain control', sensitivity: 'Input sensitivity (noise gate)', sensitivitySub: 'Sound quieter than the line is cut. Speak normally and set it just below your voice.', advanced: 'Advanced mic processing', highpass: 'Low-cut filter (removes rumble)', compressor: 'Compressor (evens out loud and quiet)', limiter: 'Limiter (prevents clipping)', eqLow: 'Bass', eqMid: 'Mid', eqHigh: 'Treble', reset: 'Reset to defaults',
+    raw: 'Raw microphone (no processing)', rawSub: 'Sends your mic exactly as it is: no noise suppression, gate, EQ, compressor, limiter, echo cancellation or auto gain, and higher quality. Best with a good mic and headphones.', echo: 'Echo cancellation', agc: 'Automatic gain control', sensitivity: 'Input sensitivity (noise gate)', sensitivitySub: 'Sound quieter than the line is cut. Speak normally and set it just below your voice.', advanced: 'Advanced mic processing', highpass: 'Low-cut filter (removes rumble)', compressor: 'Compressor (evens out loud and quiet)', limiter: 'Limiter (prevents clipping)', eqLow: 'Bass', eqMid: 'Mid', eqHigh: 'Treble', reset: 'Reset to defaults',
   },
   gs: {
     menu: 'Server menu', settings: 'Server settings', createChannel: 'Create channel', createCategory: 'Create category', invite: 'Invite people', leave: 'Leave server', leaveConfirm: 'Leave {{name}}? You can only come back with a new invite.',
@@ -179,7 +179,7 @@ const ar: typeof en = {
   },
   vs: {
     inputMode: 'وضع الإدخال', vad: 'كشف الصوت', ptt: 'اضغط للتحدث', pttKey: 'الاختصار', pttRecord: 'اضغط زرًا في لوحة المفاتيح أو الفأرة…', pttRelease: 'تأخير الإفلات', pttGlobal: 'يعمل حتى أثناء اللعب.',
-    echo: 'إلغاء الصدى', agc: 'التحكم التلقائي بالكسب', sensitivity: 'حساسية الإدخال (بوابة الضوضاء)', sensitivitySub: 'يُقطع أي صوت أهدأ من الخط. تحدّث بشكل طبيعي واضبطه أسفل صوتك بقليل.', advanced: 'معالجة متقدمة للميكروفون', highpass: 'مرشح القطع المنخفض (يزيل الهمهمة)', compressor: 'الضاغط (يوازن الصوت العالي والمنخفض)', limiter: 'المحدّد (يمنع التشويه)', eqLow: 'الجهير', eqMid: 'الوسط', eqHigh: 'الحدة', reset: 'استعادة الافتراضي',
+    raw: 'مايك خام (بدون أي معالجة)', rawSub: 'يرسل صوت المايك كما هو بالضبط: بلا عزل ضوضاء ولا بوابة صوت ولا معادل ولا ضاغط ولا محدِّد ولا إلغاء صدى ولا تحكم تلقائي بالعلو، وبجودة أعلى. الأفضل مع مايك جيد وسماعات.', echo: 'إلغاء الصدى', agc: 'التحكم التلقائي بالكسب', sensitivity: 'حساسية الإدخال (بوابة الضوضاء)', sensitivitySub: 'يُقطع أي صوت أهدأ من الخط. تحدّث بشكل طبيعي واضبطه أسفل صوتك بقليل.', advanced: 'معالجة متقدمة للميكروفون', highpass: 'مرشح القطع المنخفض (يزيل الهمهمة)', compressor: 'الضاغط (يوازن الصوت العالي والمنخفض)', limiter: 'المحدّد (يمنع التشويه)', eqLow: 'الجهير', eqMid: 'الوسط', eqHigh: 'الحدة', reset: 'استعادة الافتراضي',
   },
   gs: {
     menu: 'قائمة الخادم', settings: 'إعدادات الخادم', createChannel: 'إنشاء قناة', createCategory: 'إنشاء فئة', invite: 'دعوة أشخاص', leave: 'مغادرة الخادم', leaveConfirm: 'مغادرة \u2068{{name}}\u2069؟ لا يمكنك العودة إلا بدعوة جديدة.',

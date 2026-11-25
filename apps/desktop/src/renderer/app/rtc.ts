@@ -14,6 +14,8 @@ export interface PublishOpts {
   /** simulcast layers for camera */
   simulcast?: boolean;
   degradation?: RTCDegradationPreference;
+  /** Opus fmtp overrides for this track (e.g. raw mic: no DTX) */
+  opus?: Record<string, number>;
 }
 
 export class RtcEngine {
@@ -80,7 +82,7 @@ export class RtcEngine {
       // Opus tuning lives in the answer's fmtp: our encoder follows what the receiver side asks for.
       const answer =
         source === 'mic'
-          ? { ...res.sessionDescription, sdp: tuneOpus(res.sessionDescription.sdp, tr.mid, { usedtx: 1, useinbandfec: 1, stereo: 0, maxaveragebitrate: opts.maxBitrate ?? 96_000 }) }
+          ? { ...res.sessionDescription, sdp: tuneOpus(res.sessionDescription.sdp, tr.mid, { usedtx: 1, useinbandfec: 1, stereo: 0, maxaveragebitrate: opts.maxBitrate ?? 96_000, ...opts.opus }) }
           : source === 'screen_audio'
             ? { ...res.sessionDescription, sdp: tuneOpus(res.sessionDescription.sdp, tr.mid, { useinbandfec: 1, stereo: 1, 'sprop-stereo': 1, maxaveragebitrate: 256_000 }) }
             : res.sessionDescription;

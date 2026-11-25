@@ -200,3 +200,41 @@ export async function createMicChain(input: MediaStream, initial: MicSettings = 
     },
   };
 }
+
+/**
+ * Raw microphone: the track from the device goes out untouched (no suppression, gate, EQ, compressor,
+ * limiter). A side analyser only reads the level for meters and the speaking ring.
+ */
+export async function createRawMic(input: MediaStream): Promise<MicChain> {
+  const ctx = new AudioContext({ sampleRate: 48000, latencyHint: 'interactive' });
+  const track = input.getAudioTracks()[0]!;
+  const src = ctx.createMediaStreamSource(input);
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 1024;
+  src.connect(analyser);
+  const buf = new Float32Array(analyser.fftSize);
+  const level = () => {
+    analyser.getFloatTimeDomainData(buf);
+    let s = 0;
+    for (const v of buf) s += v * v;
+    return 20 * Math.log10(Math.sqrt(s / buf.length) + 1e-9);
+  };
+  let monitoring = false;
+  return {
+    track,
+    context: ctx,
+    levelDb: level,
+    inputLevelDb: level,
+    update: async () => {},
+    setMonitoring(on: boolean) {
+      if (on === monitoring) return;
+      monitoring = on;
+      if (on) src.connect(ctx.destination);
+      else src.disconnect(ctx.destination);
+    },
+    destroy() {
+      input.getTracks().forEach((t) => t.stop());
+      void ctx.close();
+    },
+  };
+}

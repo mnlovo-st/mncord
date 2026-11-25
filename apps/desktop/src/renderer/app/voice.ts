@@ -2,7 +2,7 @@
 // mncord processing chain; remote audio plays through Web Audio so per-user volume can reach 400%.
 import type { MediaSource, RtcJoin } from '@mncord/shared';
 import { create } from 'zustand';
-import { createMicChain, DEFAULT_MIC, type MicChain, type MicSettings, type Suppression } from '../media/micChain';
+import { createMicChain, createRawMic, DEFAULT_MIC, type MicChain, type MicSettings, type Suppression } from '../media/micChain';
 import { api } from './api';
 import { send } from './gateway';
 import { setPrefs, usePrefs } from './prefs';
@@ -140,6 +140,42 @@ function startSpeakingMeter() {
 
 const micSettings = (): MicSettings => ({ ...DEFAULT_MIC, ...usePrefs.getState().mic, suppression: getV().suppression });
 
+/** Opens the microphone: either the full mncord chain, or raw (exactly what the device gives, untouched). */
+async function openMic(): Promise<MicChain> {
+  const p = usePrefs.getState();
+  const device = p.inputDeviceId !== 'default' ? { ideal: p.inputDeviceId } : undefined;
+  if (p.rawMic) {
+    const s = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: device, echoCancellation: false, noiseSuppression: false, autoGainControl: false, sampleRate: 48000 } });
+    return createRawMic(s);
+  }
+  const s = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: device, echoCancellation: p.echoCancellation, noiseSuppression: false, autoGainControl: p.autoGain, channelCount: 1, sampleRate: 48000 } });
+  return createMicChain(s, micSettings());
+}
+let lastBitrate = 96_000;
+/** raw mic: no DTX (every moment is sent as it is) and at least 128 kbps */
+function micPublishOpts(channelBitrate: number) {
+  lastBitrate = channelBitrate;
+  const raw = usePrefs.getState().rawMic;
+  const maxBitrate = Math.min(raw ? Math.max(channelBitrate, 128_000) : channelBitrate, 510_000);
+  return { maxBitrate, opus: raw ? { usedtx: 0, maxaveragebitrate: maxBitrate } : undefined };
+}
+/** switching raw on/off during a call: reopen the mic and republish it */
+async function reopenMic() {
+  const e = engine;
+  if (!e || !mic) return;
+  const old = mic;
+  try {
+    const next = await openMic();
+    await e.unpublish('mic');
+    old.destroy();
+    mic = next;
+    syncMic();
+    await e.publish(next.track, 'mic', micPublishOpts(lastBitrate));
+  } catch (err) {
+    console.warn('[voice] could not switch the microphone', err);
+  }
+}
+
 function publishState() {
   const v = getV();
   if (!v.channelId) return;
@@ -208,6 +244,7 @@ usePrefs.subscribe((s, prev) => {
     publishState();
   }
   if (JSON.stringify(s.mic) !== JSON.stringify(prev.mic) && mic) void mic.update(micSettings());
+  if ((s.rawMic !== prev.rawMic || (!s.rawMic && (s.echoCancellation !== prev.echoCancellation || s.autoGain !== prev.autoGain))) && mic) void reopenMic();
 });
 
 /** Auto-subscribe: everyone's mic and camera. Screen shares only when you press "Watch". */
@@ -251,15 +288,9 @@ export async function joinVoice(guildId: string | null, channelId: string) {
 
     if (join.allowed.includes('mic')) {
       try {
-        const raw = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            deviceId: usePrefs.getState().inputDeviceId !== 'default' ? { ideal: usePrefs.getState().inputDeviceId } : undefined,
-            echoCancellation: usePrefs.getState().echoCancellation, noiseSuppression: false, autoGainControl: usePrefs.getState().autoGain, channelCount: 1, sampleRate: 48000,
-          },
-        });
-        mic = await createMicChain(raw, micSettings());
+        mic = await openMic();
         syncMic();
-        await e.publish(mic.track, 'mic', { maxBitrate: Math.min(join.bitrate, 510_000) });
+        await e.publish(mic.track, 'mic', micPublishOpts(join.bitrate));
       } catch (err) {
         console.warn('[voice] mic unavailable', err);
         setV({ error: (err as Error).name === 'NotAllowedError' ? 'mic_denied' : null, muted: true });

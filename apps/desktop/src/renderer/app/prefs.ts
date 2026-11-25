@@ -18,6 +18,8 @@ export interface Prefs {
   streamQuality: '720p30' | '1080p30' | '1080p60' | '1440p60' | '1440p100';
   streamAudio: boolean;
   echoCancellation: boolean;
+  /** send the microphone exactly as it is: no processing at all */
+  rawMic: boolean;
   autoGain: boolean;
   closeToTray: boolean;
   notifications: boolean;
@@ -26,7 +28,7 @@ export interface Prefs {
 const DEFAULTS: Prefs = {
   theme: 'midnight', density: 'cozy', fontScale: 100, reducedMotion: false, inputDeviceId: 'default', outputDeviceId: 'default', suppression: 'gtcrn',
   inputMode: 'vad', ptt: { kind: 'key', code: 'Backquote' }, pttReleaseMs: 200, userVolumes: {}, mic: {}, streamQuality: '1440p100', streamAudio: true,
-  echoCancellation: true, autoGain: false, closeToTray: true, notifications: true,
+  echoCancellation: true, rawMic: false, autoGain: false, closeToTray: true, notifications: true,
 };
 const KEY = 'mncord.prefs';
 
