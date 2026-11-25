@@ -58,6 +58,17 @@ export function apply() {
   const p = usePrefs.getState();
   const el = document.documentElement;
   el.dataset.theme = p.theme;
+  // Windows title bar strip + its native buttons in the theme's colours
+  if (window.mncord?.platform === 'win32') {
+    el.dataset.titlebar = 'true';
+    requestAnimationFrame(() => {
+      const cs = getComputedStyle(el);
+      const hex = (v: string) => (/^#[0-9a-f]{6}$/i.test(v.trim()) ? v.trim() : null);
+      const color = hex(cs.getPropertyValue('--c-bg-deep')) ?? '#0a0e16';
+      const symbolColor = hex(cs.getPropertyValue('--c-text-muted')) ?? '#a3aec4';
+      void window.mncord?.window.setTitleBar?.({ color, symbolColor });
+    });
+  }
   el.dataset.reducedMotion = String(p.reducedMotion);
   el.dataset.density = p.density;
   // tokens are px-based, so scale the whole UI the way browser zoom does

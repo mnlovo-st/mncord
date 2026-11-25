@@ -1,10 +1,29 @@
 // mncord main process. (c) mnlovo
-import { app, BrowserWindow, crashReporter, desktopCapturer, ipcMain, Menu, nativeImage, safeStorage, session, shell, Tray, type WebContents } from 'electron';
+import { app, BrowserWindow, crashReporter, desktopCapturer, ipcMain, Menu, nativeImage, net, protocol, safeStorage, session, shell, Tray, type WebContents } from 'electron';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, normalize, relative } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const isDev = !app.isPackaged;
 const DEV_URL = process.env.ELECTRON_RENDERER_URL; // set by electron-vite in dev
+
+// The UI is served from a private app://mncord origin instead of file://. The packaged binary keeps the
+// GrantFileProtocolExtraPrivileges fuse OFF (file:// pages get no special powers), so this is the way the
+// window reads its own files; it also gives the page a real, fixed origin for the CSP.
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true, codeCache: true } },
+]);
+const RENDERER_DIR = join(__dirname, '../renderer');
+function serveApp() {
+  protocol.handle('app', (req) => {
+    const url = new URL(req.url);
+    if (url.host !== 'mncord') return new Response('not found', { status: 404 });
+    const file = normalize(join(RENDERER_DIR, decodeURIComponent(url.pathname)));
+    const rel = relative(RENDERER_DIR, file);
+    if (rel.startsWith('..') || rel.includes(':')) return new Response('not found', { status: 404 }); // no path walking
+    return net.fetch(pathToFileURL(file).toString());
+  });
+}
 
 // ── Spike automation (M0). MNCORD_SPIKE=screen|canvas4k runs publisher + viewer and writes a report.
 const spike = process.env.MNCORD_SPIKE as 'screen' | 'canvas4k' | undefined;
@@ -78,11 +97,11 @@ function setupTray(win: BrowserWindow) {
 
 function rendererUrl(page: string, query: Record<string, string | number>) {
   const qs = new URLSearchParams(Object.entries(query).map(([k, v]) => [k, String(v)])).toString();
-  return DEV_URL ? `${DEV_URL}/${page}.html?${qs}` : `file://${join(__dirname, '../renderer', `${page}.html`)}?${qs}`;
+  return DEV_URL ? `${DEV_URL}/${page}.html?${qs}` : `app://mncord/${page}.html?${qs}`;
 }
 
 function isOurOrigin(url: string) {
-  return (DEV_URL && url.startsWith(DEV_URL)) || url.startsWith('file://');
+  return (DEV_URL && url.startsWith(DEV_URL)) || url.startsWith('app://mncord/');
 }
 
 function harden(contents: WebContents) {
@@ -106,6 +125,9 @@ function createWindow(page: string, query: Record<string, string | number>, boun
     minHeight: 500,
     backgroundColor: '#0a0e16',
     title: 'mncord',
+    // our own dark title bar; Windows still draws the real minimise / maximise / close buttons on top
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { color: '#0a0e16', symbolColor: '#a3aec4', height: 32 },
     icon: resourcePath('icon.png'),
     show: false,
     webPreferences: {
@@ -164,6 +186,12 @@ ipcMain.handle('capture:select-source', (_e, id: unknown) => {
 
 // ── Token vault: refresh token encrypted with the OS (DPAPI on Windows) in userData.
 const vaultFile = () => join(app.getPath('userData'), 'session.bin');
+// title bar buttons follow the theme (dark, light, AMOLED)
+ipcMain.handle('win:titlebar', (e, c: { color: string; symbolColor: string }) => {
+  const w = BrowserWindow.fromWebContents(e.sender);
+  const ok = (v: unknown) => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
+  if (w && ok(c?.color) && ok(c?.symbolColor)) w.setTitleBarOverlay({ color: c.color, symbolColor: c.symbolColor, height: 32 });
+});
 ipcMain.handle('win:flash', (e) => {
   const w = BrowserWindow.fromWebContents(e.sender);
   if (w && !w.isFocused()) w.flashFrame(true);
@@ -264,6 +292,8 @@ ipcMain.handle('spike:report', (_e, role: unknown, data: unknown) => {
 });
 
 app.whenReady().then(async () => {
+  Menu.setApplicationMenu(null); // no File / Edit / View menu: this is a chat app, not an editor
+  if (!DEV_URL) serveApp();
   setupSession();
   if (spike) {
     const q = { mode: spike, fps: spikeFps, codec: spikeCodec, seconds: spikeSeconds, room: `spike-${Date.now()}`, capw: process.env.MNCORD_SPIKE_CAPW ?? 3840, caph: process.env.MNCORD_SPIKE_CAPH ?? 2160, legacy: process.env.MNCORD_SPIKE_LEGACY ?? 0 };

@@ -37,6 +37,7 @@ nsis:
   shortcutName: mncord
   installerIcon: resources/icon.ico
   uninstallerIcon: resources/icon.ico
+  installerHeaderIcon: resources/icon.ico
   uninstallDisplayName: mncord
   deleteAppDataOnUninstall: false
   language: "1033"

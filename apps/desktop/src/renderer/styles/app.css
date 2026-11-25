@@ -141,3 +141,9 @@
   .anim-fade { animation: fade-in var(--motion-base) var(--motion-ease) both; }
   .anim-slide-up { animation: slide-up var(--motion-base) var(--motion-ease) both; }
 }
+
+/* Windows: our own 32 px title bar sits above everything; full-screen layers start below it */
+:root { --titlebar-h: 0px; }
+html[data-titlebar='true'] { --titlebar-h: 32px; }
+html[data-titlebar='true'] #root { padding-top: var(--titlebar-h); box-sizing: border-box; }
+html[data-titlebar='true'] .fixed.inset-0 { top: var(--titlebar-h); }

@@ -2,6 +2,7 @@ import { DirectionProvider } from '@radix-ui/react-direction';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import splash from '../assets/splash.webm';
+import mark from '../assets/mark-m.webp';
 import { TooltipProvider } from '../ui/Tooltip';
 import { refresh, setSignedOutHandler } from './api';
 import { connectGateway, disconnectGateway } from './gateway';
@@ -38,9 +39,17 @@ export function App() {
     setPhase('app');
   };
 
+  const titlebar = window.mncord?.platform === 'win32';
   return (
     <DirectionProvider dir={i18n.language === 'ar' ? 'rtl' : 'ltr'}>
       <TooltipProvider>
+        {titlebar && (
+          // drag strip under Windows' own caption buttons (they sit on the right, 138 px)
+          <div dir="ltr" className="fixed inset-x-0 top-0 z-[60] flex h-[var(--titlebar-h)] items-center gap-2 bg-bg-deep pe-[150px] ps-3 [-webkit-app-region:drag]" aria-hidden>
+            <img src={mark} alt="" className="size-4" draggable={false} />
+            <span className="font-display text-xs font-semibold tracking-wide text-muted">mncord</span>
+          </div>
+        )}
         {phase === 'boot' || !splashDone ? (
           <div className="fixed inset-0 z-50 grid place-items-center bg-black" aria-busy="true">
             <div className="flex flex-col items-center gap-4">

@@ -27,6 +27,7 @@ const api = {
   },
   window: {
     flash: (): Promise<void> => ipcRenderer.invoke('win:flash'),
+    setTitleBar: (c: { color: string; symbolColor: string }): Promise<void> => ipcRenderer.invoke('win:titlebar', c),
     setCloseToTray: (on: boolean): Promise<void> => ipcRenderer.invoke('win:close-to-tray', on),
     getAutostart: (): Promise<boolean> => ipcRenderer.invoke('win:get-autostart'),
     setAutostart: (on: boolean): Promise<void> => ipcRenderer.invoke('win:set-autostart', on),
