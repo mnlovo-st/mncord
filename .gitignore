@@ -1,0 +1,15 @@
+node_modules/
+dist/
+out/
+release/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+replica/screens/*.mov
+infra/dev-bin/
+.data/
+apps/desktop/.env.production
+apps/desktop/release/
+!apps/desktop/.env

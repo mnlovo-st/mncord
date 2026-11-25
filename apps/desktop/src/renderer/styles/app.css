@@ -1,0 +1,143 @@
+/* mncord base styles. (c) mnlovo */
+@import "tailwindcss";
+@import "./tokens.css";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/readex-pro";
+@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource/ibm-plex-sans-arabic/arabic-400.css";
+@import "@fontsource/ibm-plex-sans-arabic/arabic-500.css";
+@import "@fontsource/ibm-plex-sans-arabic/arabic-600.css";
+@import "@fontsource/ibm-plex-sans-arabic/arabic-700.css";
+
+@custom-variant rtl (&:where([dir="rtl"], [dir="rtl"] *));
+
+/* Tokens -> Tailwind. Components use bg-surface, text-muted, rounded-md… never hex. */
+@theme inline {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-black: #000;
+  --color-white: #fff;
+  --color-bg-deep: var(--c-bg-deep);
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-surface-raised: var(--c-surface-raised);
+  --color-surface-hover: var(--c-surface-hover);
+  --color-surface-selected: var(--c-surface-selected);
+  --color-surface-input: var(--c-surface-input);
+  --color-popover: var(--c-popover);
+  --color-border: var(--c-border);
+  --color-border-input: var(--c-border-input);
+  --color-text: var(--c-text);
+  --color-muted: var(--c-text-muted);
+  --color-faint: var(--c-text-faint);
+  --color-link: var(--c-text-link);
+  --color-accent: var(--c-accent);
+  --color-accent-hover: var(--c-accent-hover);
+  --color-accent-text: var(--c-accent-text);
+  --color-on-accent: var(--c-on-accent);
+  --color-chrome: var(--c-chrome);
+  --color-on-chrome: var(--c-on-chrome);
+  --color-danger: var(--c-danger);
+  --color-danger-text: var(--c-danger-text);
+  --color-danger-solid: var(--c-danger-solid);
+  --color-on-danger: var(--c-on-danger);
+  --color-success: var(--c-success);
+  --color-success-solid: var(--c-success-solid);
+  --color-on-success: var(--c-on-success);
+  --color-warning: var(--c-warning);
+  --color-online: var(--c-status-online);
+  --color-idle: var(--c-status-idle);
+  --color-dnd: var(--c-status-dnd);
+  --color-offline: var(--c-status-offline);
+  --color-streaming: var(--c-status-streaming);
+  --color-mention: var(--c-mention-bg);
+  --color-focus: var(--c-focus-ring);
+
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+
+  --text-2xs: 11px; --text-2xs--line-height: 14px;
+  --text-xs: 12px;  --text-xs--line-height: 16px;
+  --text-sm: 14px;  --text-sm--line-height: 18px;
+  --text-base: 16px; --text-base--line-height: 22px;
+  --text-lg: 20px;  --text-lg--line-height: 24px;
+  --text-xl: 24px;  --text-xl--line-height: 30px;
+  --text-display: 32px; --text-display--line-height: 40px;
+
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-guild: var(--radius-guild);
+
+  --shadow-low: var(--shadow-low);
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+  --shadow-modal: var(--shadow-modal);
+
+  --ease-out: var(--motion-ease);
+  --ease-spring: var(--motion-spring);
+}
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--c-bg);
+    color: var(--c-text);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  :lang(ar) body, :lang(ar) { letter-spacing: 0 !important; }
+  :lang(ar) .uppercase { text-transform: none; }
+  /* One-line names: let each string pick its own direction so English names in the Arabic UI (and the
+     reverse) are cut at their END, while the column stays aligned with the UI side. Utilities still win. */
+  .truncate { unicode-bidi: plaintext; }
+  html[dir="rtl"] .truncate { text-align: right; }
+  html[dir="ltr"] .truncate { text-align: left; }
+  :focus-visible {
+    outline: 2px solid var(--c-focus-ring);
+    outline-offset: 2px;
+  }
+  ::selection { background: color-mix(in srgb, var(--c-accent) 35%, transparent); }
+  * { scrollbar-width: thin; scrollbar-color: var(--c-surface-selected) transparent; }
+}
+
+/* Signature: chrome sheen sweep (mncord, not Discord). */
+@layer components {
+  .sheen { position: relative; overflow: hidden; isolation: isolate; }
+  .sheen::after {
+    content: ""; position: absolute; inset: -50% auto -50% -60%; width: 40%;
+    background: linear-gradient(105deg, transparent, rgb(255 255 255 / .28), transparent);
+    transform: translateX(0) skewX(-12deg); opacity: 0; pointer-events: none; z-index: 1;
+  }
+  .sheen:hover::after, .sheen[data-active="true"]::after {
+    animation: sheen var(--motion-slow) var(--motion-ease) 1;
+  }
+  @keyframes sheen {
+    0% { transform: translateX(0) skewX(-12deg); opacity: 0; }
+    20% { opacity: 1; }
+    100% { transform: translateX(420%) skewX(-12deg); opacity: 0; }
+  }
+  /* logo art comes from the black-background video: 'screen' blending drops the black on dark themes */
+  .logo-blend { mix-blend-mode: screen; }
+  [data-theme="light"] .logo-blend { mix-blend-mode: normal; filter: invert(1) hue-rotate(180deg); }
+  .chrome-text {
+    background: linear-gradient(180deg, #ffffff 0%, #c9d3e3 45%, #6f7d96 55%, #e8edf6 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  @media (prefers-reduced-motion: reduce) { .sheen::after { animation: none !important; } }
+  [data-reduced-motion="true"] .sheen::after { animation: none !important; }
+  @keyframes pop-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slide-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes typing { 0%, 60%, 100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-3px); opacity: 1; } }
+  .anim-pop { animation: pop-in var(--motion-base) var(--motion-spring) both; }
+  .anim-fade { animation: fade-in var(--motion-base) var(--motion-ease) both; }
+  .anim-slide-up { animation: slide-up var(--motion-base) var(--motion-ease) both; }
+}

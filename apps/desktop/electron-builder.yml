@@ -1,0 +1,51 @@
+# mncord Windows installer. (c) mnlovo
+appId: com.mnlovo.mncord
+productName: mncord
+copyright: Copyright © 2026 mnlovo
+directories:
+  output: release/${version}
+  buildResources: resources
+files:
+  - out/**
+  - package.json
+  # never ship sources, maps or spike tooling
+  - "!**/*.map"
+  - "!out/renderer/spike*"
+  - "!out/renderer/design*"
+extraResources:
+  - from: resources/tray.png
+    to: tray.png
+  - from: resources/icon.png
+    to: icon.png
+asar: true
+asarUnpack:
+  - "**/node_modules/uiohook-napi/**" # native hook for push-to-talk
+afterPack: scripts/after-pack.cjs
+win:
+  icon: resources/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: mncord-Setup-${version}.${ext}
+  # code signing (SignPath Foundation, free for open source) plugs in here later
+nsis:
+  oneClick: false
+  perMachine: false # installs per user, no admin prompt
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: mncord
+  installerIcon: resources/icon.ico
+  uninstallerIcon: resources/icon.ico
+  uninstallDisplayName: mncord
+  deleteAppDataOnUninstall: false
+  language: "1033"
+  installerLanguages: [en_US, ar_SA]
+  multiLanguageInstaller: true
+publish:
+  provider: github
+  owner: ${env.GH_OWNER}
+  repo: mncord
+  releaseType: release
+electronVersion: 45.5.0
+npmRebuild: false # uiohook-napi ships N-API prebuilds (ABI-stable), no compile needed

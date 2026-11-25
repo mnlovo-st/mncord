@@ -1,0 +1,309 @@
+{
+  "_about": "mncord theme 'light' (overrides of midnight).",
+  "color": {
+    "bg-deep": "#e2e6ee",
+    "bg": "#ffffff",
+    "surface": "#f2f4f8",
+    "surface-raised": "#ffffff",
+    "surface-hover": "#e7ebf2",
+    "surface-selected": "#d8dfeb",
+    "surface-input": "#eceff4",
+    "popover": "#ffffff",
+    "border": "#d4dae5",
+    "border-input": "#7b879c",
+    "text": "#111622",
+    "text-muted": "#465166",
+    "text-faint": "#5a667b",
+    "text-link": "#1858c8",
+    "accent": "#f0b02e",
+    "accent-hover": "#e09d14",
+    "on-accent": "#1a1304",
+    "chrome": "#2a3446",
+    "on-chrome": "#f2f4f8",
+    "danger": "#d9363c",
+    "danger-text": "#b4232a",
+    "on-danger": "#ffffff",
+    "danger-solid": "#c42f35",
+    "success": "#16794a",
+    "success-solid": "#1a7a4b",
+    "on-success": "#ffffff",
+    "warning": "#9a5b00",
+    "status-online": "#178a48",
+    "status-idle": "#a86f00",
+    "status-dnd": "#d9363c",
+    "status-offline": "#747f94",
+    "status-streaming": "#7c4dff",
+    "mention-bg": "#fdf3d9",
+    "focus-ring": "#1858c8",
+    "accent-text": "#8a5b00"
+  },
+  "pairs": [
+    [
+      "text",
+      "bg"
+    ],
+    [
+      "text",
+      "surface"
+    ],
+    [
+      "text",
+      "bg-deep"
+    ],
+    [
+      "text",
+      "popover"
+    ],
+    [
+      "text",
+      "surface-hover"
+    ],
+    [
+      "text",
+      "surface-selected"
+    ],
+    [
+      "text",
+      "surface-input"
+    ],
+    [
+      "text",
+      "mention-bg"
+    ],
+    [
+      "text-muted",
+      "bg"
+    ],
+    [
+      "text-muted",
+      "surface"
+    ],
+    [
+      "text-muted",
+      "surface-hover"
+    ],
+    [
+      "text-muted",
+      "popover"
+    ],
+    [
+      "text-faint",
+      "bg"
+    ],
+    [
+      "text-faint",
+      "surface"
+    ],
+    [
+      "text-faint",
+      "surface-input"
+    ],
+    [
+      "text-link",
+      "bg"
+    ],
+    [
+      "text-link",
+      "mention-bg"
+    ],
+    [
+      "on-accent",
+      "accent"
+    ],
+    [
+      "on-accent",
+      "accent-hover"
+    ],
+    [
+      "on-chrome",
+      "chrome"
+    ],
+    [
+      "danger-text",
+      "bg"
+    ],
+    [
+      "danger-text",
+      "popover"
+    ],
+    [
+      "on-danger",
+      "danger-solid"
+    ],
+    [
+      "on-success",
+      "success-solid"
+    ],
+    [
+      "success",
+      "bg"
+    ],
+    [
+      "warning",
+      "bg"
+    ],
+    [
+      "border-input",
+      "surface-input",
+      "ui"
+    ],
+    [
+      "border-input",
+      "bg",
+      "ui"
+    ],
+    [
+      "focus-ring",
+      "bg",
+      "ui"
+    ],
+    [
+      "focus-ring",
+      "surface",
+      "ui"
+    ],
+    [
+      "status-online",
+      "surface",
+      "ui"
+    ],
+    [
+      "status-idle",
+      "surface",
+      "ui"
+    ],
+    [
+      "status-dnd",
+      "surface",
+      "ui"
+    ],
+    [
+      "status-offline",
+      "surface",
+      "ui"
+    ],
+    [
+      "status-streaming",
+      "surface",
+      "ui"
+    ],
+    [
+      "accent-text",
+      "bg"
+    ],
+    [
+      "accent-text",
+      "surface"
+    ]
+  ],
+  "font": {
+    "sans": "\"Inter\", \"IBM Plex Sans Arabic\", system-ui, \"Segoe UI\", sans-serif",
+    "arabic": "\"IBM Plex Sans Arabic\", \"Inter\", system-ui, \"Segoe UI\", sans-serif",
+    "display": "\"Readex Pro\", \"IBM Plex Sans Arabic\", \"Inter\", sans-serif",
+    "mono": "\"JetBrains Mono\", ui-monospace, Consolas, monospace",
+    "_licences": "Inter, IBM Plex Sans Arabic, Readex Pro, JetBrains Mono: all SIL OFL 1.1, bundled locally (no CDN)."
+  },
+  "type": {
+    "2xs": {
+      "size": 11,
+      "line": 14,
+      "weight": 600,
+      "_use": "badges, category headers (uppercase in EN, normal in AR)"
+    },
+    "xs": {
+      "size": 12,
+      "line": 16,
+      "weight": 500,
+      "_use": "timestamps, hints"
+    },
+    "sm": {
+      "size": 14,
+      "line": 18,
+      "weight": 400,
+      "_use": "settings text, member list, buttons"
+    },
+    "base": {
+      "size": 16,
+      "line": 22,
+      "weight": 400,
+      "_use": "messages, channel names (500)"
+    },
+    "lg": {
+      "size": 20,
+      "line": 24,
+      "weight": 600,
+      "_use": "modal titles, settings headers"
+    },
+    "xl": {
+      "size": 24,
+      "line": 30,
+      "weight": 700,
+      "_use": "auth titles"
+    },
+    "display": {
+      "size": 32,
+      "line": 40,
+      "weight": 700,
+      "_use": "empty states, splash"
+    },
+    "_arabic": "Arabic line-height +2px at every step (taller ascenders/descenders), letter-spacing always 0, never uppercase."
+  },
+  "space": [
+    0,
+    2,
+    4,
+    6,
+    8,
+    12,
+    16,
+    20,
+    24,
+    32,
+    40,
+    48,
+    64
+  ],
+  "radius": {
+    "xs": 4,
+    "sm": 6,
+    "md": 8,
+    "lg": 12,
+    "xl": 16,
+    "guild": 16,
+    "pill": 999
+  },
+  "shadow": {
+    "low": "0 1px 0 rgba(0,0,0,.25)",
+    "card": "0 2px 8px rgba(0,0,0,.30)",
+    "pop": "0 8px 24px rgba(0,0,0,.45), 0 0 0 1px rgba(201,211,227,.06)",
+    "modal": "0 24px 64px rgba(0,0,0,.55)"
+  },
+  "motion": {
+    "fast": "120ms",
+    "base": "200ms",
+    "slow": "320ms",
+    "ease": "cubic-bezier(.2,.8,.2,1)",
+    "spring": "cubic-bezier(.34,1.56,.64,1)",
+    "_reduced": "prefers-reduced-motion or the in-app toggle: durations 0, keep opacity fades only."
+  },
+  "layout": {
+    "guild-rail": 72,
+    "guild-icon": 48,
+    "channel-sidebar": 240,
+    "header": 48,
+    "member-list": 240,
+    "user-panel": 56,
+    "message-avatar": 40,
+    "message-gutter": 72,
+    "composer-min": 44,
+    "settings-nav": 218,
+    "settings-content-max": 740,
+    "modal-sm": 440,
+    "modal-md": 560,
+    "titlebar": 28,
+    "min-window": [
+      940,
+      500
+    ]
+  }
+}

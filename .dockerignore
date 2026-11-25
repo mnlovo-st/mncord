@@ -1,0 +1,12 @@
+**/node_modules
+**/.data
+**/release
+**/out
+**/dist
+apps/desktop
+replica
+infra/dev-bin
+.git
+**/*.log
+**/.env
+**/.env.*

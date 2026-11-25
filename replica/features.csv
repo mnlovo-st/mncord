@@ -1,0 +1,126 @@
+feature,area,priority,original,clone,notes
+Register with email username password DOB,auth,must,yes,yes,"M1: S03, zod validation, age gate 13+"
+Login with email or username,auth,must,yes,yes,"M1: S02, no user enumeration (dummy argon2 verify)"
+Password hashing with Argon2id,security,must,n/a,yes,m=64MiB t=3 p=1 via @node-rs/argon2
+Email verification,auth,must,yes,yes,"M2: 6-digit code, 5 attempts, resend, banner (S06)"
+Forgot and reset password (revokes other sessions),auth,must,yes,yes,M2: S05; 2FA still required after reset
+Two-factor auth TOTP + backup codes,security,must,yes,yes,"M2: QR setup, replay-protected TOTP, 10 one-time backup codes, step-up for sensitive actions"
+Session list with remote logout (Devices),security,must,yes,yes,M2: S24 Devices
+Refresh-token rotation and short-lived access tokens,security,must,n/a,yes,"15-min EdDSA JWT; rotating refresh, reuse → family revoked (tested)"
+Rate limiting on auth and messaging,security,must,yes,yes,@fastify/rate-limit per route + gateway frame limit
+Login on new device alert by email,security,should,yes,yes,M2: alert when device+OS unseen for 90 days
+QR code login from another signed-in device,auth,could,yes,no,
+Friends list Online All Pending Blocked,social,must,yes,yes,M3: S07 tabs + live updates
+Add friend by username,social,must,yes,yes,M3: respects friend-request privacy; same answer for unknown/private (no probing)
+Block and unblock users,social,must,yes,yes,"M3: blocks make DMs read-only, refuse calls, hide profile"
+Active Now column,social,should,yes,no,S07
+1:1 DMs,dms,must,yes,yes,"M3: S08, race-safe creation, DM privacy setting enforced"
+Group DMs with name and icon,dms,must,yes,partial,"M3: friends-only groups up to 10, rename, add/remove, owner hand-off; icon upload in M4"
+Pinned DMs on desktop,dms,should,new,no,community request (Dexerto 2026)
+Friend nicknames and private notes,social,should,yes,partial,API done; UI later
+Create server from templates,servers,must,yes,yes,"4 templates, channel names in EN or AR"
+Invite links with expiry and max uses,servers,must,yes,yes,M5: list + revoke in settings
+Server folders on the rail with drag and drop,servers,must,yes,no,
+Unlimited server joins (Nitro: 200),nitro-free,must,paid,yes,no join limit at all
+Custom vanity invite link for every server,nitro-free,should,paid,no,boost perk made free
+Server discovery,servers,could,yes,no,S21
+Text channels,channels,must,yes,yes,S10
+Categories with drag reorder,channels,must,yes,partial,"M5: create/delete categories, + per category, reorder API; drag UI later"
+Voice channels,channels,must,yes,partial,server tokens + voice states tested; client verified in Electron only for M0 spike
+Announcement channels,channels,should,yes,no,
+Forum channels with tags,channels,should,yes,no,S15
+Threads,channels,should,yes,no,S16
+Stage channels,channels,could,yes,no,S14
+Pinned channels in servers,channels,should,new,no,community request
+Slowmode and NSFW gate,channels,must,yes,yes,"M7: slowmode enforced server-side (system messages excluded), 18+ channels gated by date of birth"
+Send edit delete messages,messaging,must,yes,yes,"M4: edit (author), delete (author/Manage Messages), confirm + shift-delete"
+Markdown formatting and code blocks with syntax highlight,messaging,must,yes,partial,M4: safe markdown (bold/italic/underline/strike/spoiler/quote/lists/headings/code); syntax colours later
+Replies and mentions (@user @role @everyone),messaging,must,yes,yes,M7: @role mentions (mentionable or Mention Everyone)
+Reactions with unicode and custom emoji,messaging,must,yes,yes,M5: custom emoji reactions
+Super reactions free,nitro-free,could,paid,no,
+Message length 4000 for everyone,nitro-free,must,paid,yes,M4: enforced server + client counter
+Typing indicator and read states and unread badges,messaging,must,yes,yes,"M4: read acks, unread dots, mention badges on channels/servers/DMs, new-messages divider"
+File uploads up to 500 MB for everyone,nitro-free,must,paid,yes,"M4: 500 MB, 5 GB quota, drag/drop/paste, progress, images re-encoded (EXIF stripped), signed URLs"
+Image and video previews + lightbox,messaging,must,yes,yes,"M4: image grid + lightbox, video/audio players, file cards"
+Link embeds (OpenGraph),messaging,should,yes,no,server-side fetch with SSRF protection
+Spoiler tags,messaging,should,yes,yes,M4: text ||spoiler|| and spoiler images
+Pin messages,messaging,must,yes,yes,"M4: pins panel, system message, 250 cap"
+Message search with filters,messaging,must,yes,partial,M4: Arabic-normalised search with permission filtering; from:/has: UI later (API supports authorId/has)
+Inbox for mentions,messaging,should,yes,partial,API done (/users/@me/mentions); inbox popout UI later
+Forward messages,messaging,should,yes,no,
+Custom emoji everywhere (no Nitro lock),nitro-free,must,paid,yes,"M5: 250 per server, usable in any server, in messages and reactions"
+Animated emoji and stickers everywhere,nitro-free,must,paid,partial,animated GIF emoji supported; stickers later
+GIF picker,messaging,should,yes,no,Tenor/Klipy free API key or self-hosted favourites
+Offline message queue + retry,messaging,must,yes,partial,optimistic send + retry/delete; persisted queue later
+Scheduled messages,messaging,should,new,no,long-standing request
+Bookmarks / saved messages,messaging,should,new,no,S41
+Built-in message translation AR<->EN,messaging,could,new,no,needs a free translation engine; may be local model
+Voice chat one-click join,voice,must,yes,yes,click a voice channel to join
+Mute and deafen + server mute,voice,must,yes,yes,M6: server mute/deafen enforced live in LiveKit; kick/ban removes from voice
+Push-to-talk with global hotkey,voice,must,yes,yes,"M6: global key or mouse-button hook (works in games), release delay, sounds"
+Voice activity with adjustable sensitivity,voice,must,yes,yes,M6: noise-gate sensitivity slider with live meter
+Per-user volume up to 400%,voice,must,new,yes,"M6: right-click a tile or the volume button, 0-400%, remembered per user"
+Speaking indicator rings,voice,must,yes,yes,rings on tiles and channel list
+Opus up to 510 kbps stereo (high quality audio for all),nitro-free,must,paid,partial,channel bitrate up to 510 kbps applied; stereo music mode later
+Echo cancellation and AGC toggles,audio,must,yes,yes,M7: Voice settings
+AI noise suppression (DeepFilterNet/RNNoise) with strength slider,audio,must,new,partial,GTCRN AI / RNNoise / off; strength slider not exposed by the model
+Noise gate + EQ + compressor + limiter + de-esser,audio,should,new,partial,M6: gate/EQ/compressor/limiter/low-cut UI; de-esser missing
+Mic presets save/load,audio,should,new,no,
+Mic test with loopback monitoring,audio,must,yes,yes,M2 settings: meter + hear myself
+Per-app audio capture when streaming,audio,should,yes,no,Windows process loopback
+Video camera calls,video,must,yes,yes,M6: camera in voice channels and DM calls (HEVC + H.264 backup)
+Background blur / replace,video,could,paid,no,
+Screen share 1080p 60fps for everyone,streaming,must,paid,yes,"M6: Go Live picker (screens/windows), up to 1440p60, system audio"
+Screen share up to 4K 120fps with HW encode (NVENC/AMF/QSV),streaming,must,paid,partial,encoder proven at 4K120 (M0); capture above 60 fps needs the mncord-capture helper (not built yet)
+AV1 / HEVC codec choice,streaming,should,new,partial,HEVC is the only HW codec in Electron WebRTC; H.264 backup planned
+Zoom and pan on streams,streaming,should,yes,yes,M6: wheel zoom + drag pan + fullscreen
+Pop-out stream window,streaming,should,yes,no,
+Multiple simultaneous streams in one channel,streaming,should,yes,no,
+Stream audio with screen,streaming,must,yes,yes,M6: system loopback audio for screen shares
+Live connection stats panel,voice,should,yes,no,S40
+Soundboard with custom sounds everywhere,voice,should,paid,no,S33
+Clips (record last 30s),streaming,could,yes,no,
+In-game overlay,voice,could,yes,no,S39
+DM voice video calls with ring,dms,must,yes,yes,M6: video + screen share in DM calls
+End-to-end encrypted calls (MLS like DAVE),security,could,yes,no,phase 3
+Roles with permission bitfield,permissions,must,yes,yes,"M5: role editor with all permissions grouped, colours, hoist; reorder"
+Role hierarchy and colors and hoist,permissions,must,yes,yes,M5: hierarchy enforced everywhere; cannot grant what you lack (tested)
+Channel permission overwrites + category sync,permissions,must,yes,yes,M5: allow/inherit/deny editor per role/member; new channels copy category perms
+Kick ban timeout,moderation,must,yes,yes,"M5: with reasons, ban message purge, timeout up to 28 days"
+Audit log,moderation,should,yes,yes,"M5: every settings/moderation action, viewer in settings"
+AutoMod keyword spam mention rules,moderation,should,yes,no,
+Onboarding and rules screening,moderation,could,yes,no,S35
+Webhooks,integrations,could,yes,no,
+Bot API (own),integrations,could,yes,no,phase 3
+Scheduled events,servers,could,yes,no,S34
+Animated avatars and banners for everyone,nitro-free,must,paid,partial,M7: animated avatars free; banners later
+Profile themes colors and per-server profiles,nitro-free,should,paid,no,
+Avatar decorations and profile effects free,nitro-free,could,paid,no,original mncord art only
+Hide badges option,profile,should,new,no,community request
+Custom status and presence (online idle dnd invisible),profile,must,yes,yes,M7: status picker + custom status; DND silences notifications
+Full profile modal with mutual friends/servers,profile,should,yes,partial,M3: profile card with mutuals; full modal later
+Dark light and AMOLED themes + custom accent,appearance,must,paid,partial,3 themes switchable; custom accent later
+Compact and cozy message density,appearance,must,yes,yes,M2: Appearance setting
+Custom app icons,nitro-free,could,paid,no,
+Font scale and zoom,appearance,must,yes,yes,M2: 80-130% UI zoom
+Reduced motion and accessibility options,accessibility,should,yes,partial,reduced motion toggle; more a11y in M7
+Keybind editor,app,must,yes,no,
+Quick switcher Ctrl+K,app,must,yes,yes,"M7: channels, DMs, servers, friends, voice; Arabic-aware fuzzy match"
+Context menus everywhere,app,must,yes,yes,"M7: messages, channels, servers"
+Notification settings per server channel and keyword,notifications,must,yes,partial,M7: per server/channel level + mute; keywords later
+Windows toast notifications + taskbar badge,notifications,must,yes,yes,"M7: toasts for DMs/mentions, taskbar flash"
+Streamer mode,app,should,yes,no,
+English and Arabic (MSA) with full RTL mirroring,i18n,must,new,partial,all M1 screens in EN/AR with RTL; full pass in M7
+Windows installer exe (NSIS) per-user,platform,must,yes,yes,"M8: mncord-Setup-1.0.0.exe (118 MB), per-user, EN/AR installer, Electron fuses locked"
+Auto-update from GitHub Releases with rollback,platform,must,yes,partial,"M8: electron-updater (SHA-512 verified, no downgrade), release workflow; needs the GitHub repo to go live"
+Start with Windows + minimize to tray,platform,must,yes,yes,"M7: tray menu, close-to-tray, autostart hidden, single instance"
+Code-signed exe,platform,should,yes,partial,unsigned until SignPath Foundation (free for OSS) is set up
+Crash and error reporting,platform,must,n/a,partial,"M7: local crash dumps + error log with tokens redacted, error boundary; remote reporting (Sentry) needs an account"
+Nitro subscription and payments,monetisation,skip,yes,skip,mncord is free for everyone
+Server Boosts,monetisation,skip,yes,skip,boost perks are on by default
+Shop Orbs Quests,monetisation,skip,yes,skip,
+Activities / embedded games,platform,skip,yes,skip,licensed partner content
+Spotify Xbox PlayStation connections,integrations,skip,yes,skip,partner deals
+Discord bot ecosystem compatibility,integrations,skip,yes,skip,private API of another company
+Discord brand assets sounds Wumpus,brand,skip,yes,skip,owned by Discord; mnlovo assets instead
+Regional block evasion (DPI obfuscation),network,skip,n/a,skip,not built; legal risk under UAE VoIP licensing

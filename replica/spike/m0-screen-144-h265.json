@@ -1,0 +1,102 @@
+{
+  "mode": "screen",
+  "fps": 144,
+  "codec": "h265",
+  "seconds": 30,
+  "features": "",
+  "viewer": {
+    "summary": {
+      "samples": 22,
+      "fps": {
+        "median": 57,
+        "min": 51,
+        "max": 65
+      },
+      "kbps": {
+        "median": 15159.3,
+        "min": 6927.3,
+        "max": 19691.7
+      },
+      "width": {
+        "median": 2560,
+        "min": 2560,
+        "max": 2560
+      },
+      "height": {
+        "median": 1440,
+        "min": 1440,
+        "max": 1440
+      },
+      "jitterMs": {
+        "median": 3,
+        "min": 2.6,
+        "max": 4
+      },
+      "codec": "H265",
+      "framesDropped": 0,
+      "freezeCount": 0,
+      "freezeSeconds": 0,
+      "limitationCounts": {
+        "none": 22
+      }
+    }
+  },
+  "publisher": {
+    "captureSettings": {
+      "aspectRatio": 1.7777777777777777,
+      "deviceId": "screen:0:0",
+      "frameRate": 60,
+      "height": 2160,
+      "resizeMode": "crop-and-scale",
+      "width": 3840
+    },
+    "micChain": true,
+    "systemAudio": false,
+    "summary": {
+      "samples": 23,
+      "fps": {
+        "median": 57,
+        "min": 51,
+        "max": 65
+      },
+      "captureFps": {
+        "median": 57,
+        "min": 50,
+        "max": 65
+      },
+      "kbps": {
+        "median": 15489.6,
+        "min": 6950.2,
+        "max": 19564.8
+      },
+      "width": {
+        "median": 2560,
+        "min": 2560,
+        "max": 2560
+      },
+      "height": {
+        "median": 1440,
+        "min": 1440,
+        "max": 1440
+      },
+      "audioKbps": {
+        "median": 0.1,
+        "min": 0.1,
+        "max": 0.1
+      },
+      "micLevelDb": {
+        "median": -180,
+        "min": -180,
+        "max": -180
+      },
+      "codec": "H265",
+      "encoder": "MediaFoundationVideoEncodeAccelerator (NVIDIA HEVC Encoder MFT)",
+      "powerEfficient": true,
+      "qualityLimitation": "none",
+      "limitationCounts": {
+        "none": 23
+      }
+    }
+  },
+  "hwEncodeProfiles": []
+}

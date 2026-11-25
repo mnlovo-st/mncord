@@ -1,0 +1,55 @@
+# mncord production stack: one free Oracle VM, three containers. Voice/video/Go Live run on
+# Cloudflare Realtime (free tier), reached only through our server. (c) mnlovo
+# Start:  docker compose --env-file .env up -d --build
+services:
+  caddy: # HTTPS (automatic Let's Encrypt certificates) in front of the API
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [server]
+
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mncord
+      POSTGRES_USER: mncord
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes: [pg_data:/var/lib/postgresql]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mncord -d mncord"]
+      interval: 10s
+    # not published to the internet: only the server talks to it
+
+  server:
+    build: { context: .., dockerfile: apps/server/Dockerfile }
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://mncord:${POSTGRES_PASSWORD}@postgres:5432/mncord
+      PUBLIC_URL: https://${DOMAIN}
+      CF_REALTIME_APP_ID: ${CF_REALTIME_APP_ID}
+      CF_REALTIME_APP_SECRET: ${CF_REALTIME_APP_SECRET}
+      CF_TURN_KEY_ID: ${CF_TURN_KEY_ID:-}
+      CF_TURN_KEY_TOKEN: ${CF_TURN_KEY_TOKEN:-}
+      JWT_PRIVATE_JWK: ${JWT_PRIVATE_JWK}
+      SECRETS_KEY: ${SECRETS_KEY}
+      FILES_SIGNING_KEY: ${FILES_SIGNING_KEY}
+      SMTP_URL: ${SMTP_URL}
+      MAIL_FROM: ${MAIL_FROM}
+      HIBP: "1"
+    volumes: [files:/data]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+
+volumes:
+  caddy_data:
+  caddy_config:
+  pg_data:
+  files: # uploads live on the VM's free block volume

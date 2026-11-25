@@ -1,0 +1,12 @@
+{
+  "name": "mnvcord",
+  "private": true,
+  "description": "mncord: free voice, video and text chat for communities. (c) mnlovo",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "design": "npm run design -w @mncord/desktop",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "tokens": "python replica/design/make_themes.py && python replica/design/contrast.py replica/design/tokens.json && python replica/design/contrast.py replica/design/tokens.light.json && python replica/design/contrast.py replica/design/tokens.amoled.json"
+  },
+  "engines": { "node": ">=22" }
+}

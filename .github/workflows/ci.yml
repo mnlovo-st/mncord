@@ -1,0 +1,31 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - name: Typecheck
+        run: |
+          npm run typecheck -w @mncord/shared
+          npm run typecheck -w @mncord/server
+          npm run typecheck -w @mncord/desktop
+      - name: Tests (permissions, server end-to-end on embedded Postgres, markdown security)
+        run: |
+          npm test -w @mncord/shared
+          npm test -w @mncord/server
+          npm test -w @mncord/desktop
+      - name: Design tokens contrast (WCAG AA)
+        run: python3 replica/design/contrast.py replica/design/tokens.json && python3 replica/design/contrast.py replica/design/tokens.light.json && python3 replica/design/contrast.py replica/design/tokens.amoled.json
+      - name: Dependency audit
+        run: npm audit --omit=dev --audit-level=high

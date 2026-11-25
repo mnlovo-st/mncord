@@ -1,0 +1,41 @@
+# Push a tag like v1.0.0 → builds mncord-Setup-1.0.0.exe and publishes a GitHub Release.
+# Installed apps pick the update up automatically.
+# Optional repository variable MNCORD_DOMAIN (default mncord.duckdns.org)
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - name: Tests must pass before shipping
+        env: { ELECTRON_SKIP_BINARY_DOWNLOAD: "1" }
+        run: |
+          npm run typecheck -w @mncord/desktop
+          npm test -w @mncord/server
+          npm test -w @mncord/desktop
+      - name: Production endpoints
+        shell: bash
+        run: |
+          D="${{ vars.MNCORD_DOMAIN }}"
+          D="${D:-mncord.duckdns.org}"
+          cat > apps/desktop/.env.production <<EOF
+          VITE_MNCORD_API=https://$D
+          VITE_MNCORD_CSP_CONNECT=https://$D wss://$D
+          VITE_MNCORD_CSP_MEDIA=https://$D
+          EOF
+      - name: Version from tag
+        shell: bash
+        run: npm pkg set version="${GITHUB_REF_NAME#v}" -w @mncord/desktop
+      - name: Build and publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_OWNER: ${{ github.repository_owner }}
+        run: npm run release -w @mncord/desktop

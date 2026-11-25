@@ -1,0 +1,75 @@
+{
+  "mode": "canvas4k",
+  "fps": 120,
+  "codec": "av1",
+  "seconds": 25,
+  "gpu": {
+    "2d_canvas": "enabled",
+    "direct_rendering_display_compositor": "disabled_off_ok",
+    "gpu_compositing": "enabled",
+    "multiple_raster_threads": "enabled_on",
+    "opengl": "enabled_on",
+    "rasterization": "enabled",
+    "raw_draw": "disabled_off_ok",
+    "skia_graphite": "disabled_off",
+    "trees_in_viz": "disabled_off",
+    "video_decode": "enabled",
+    "video_encode": "enabled",
+    "webgl": "enabled",
+    "webgpu": "enabled",
+    "webnn": "disabled_off"
+  },
+  "viewer": {
+    "summary": {
+      "samples": 0,
+      "limitationCounts": {}
+    }
+  },
+  "publisher": {
+    "captureSettings": {
+      "aspectRatio": 1.7777777777777777,
+      "deviceId": "8T5o9BL7bdQPxgzTPYkaJRS1eZUxHe6eaHjx3qIZqDTo5Zm1S5df3tqwFKiS3avDVjF55kUcUGDeef8GFpd81Q==",
+      "frameRate": 120,
+      "height": 2160,
+      "resizeMode": "none",
+      "width": 3840
+    },
+    "micChain": false,
+    "systemAudio": false,
+    "summary": {
+      "samples": 18,
+      "fps": {
+        "median": 118,
+        "min": 31,
+        "max": 120
+      },
+      "captureFps": {
+        "median": 120,
+        "min": 117,
+        "max": 121
+      },
+      "kbps": {
+        "median": 7866.8,
+        "min": 3245.4,
+        "max": 16117.1
+      },
+      "width": {
+        "median": 1920,
+        "min": 1920,
+        "max": 2560
+      },
+      "height": {
+        "median": 1080,
+        "min": 1080,
+        "max": 1440
+      },
+      "codec": "AV1",
+      "encoder": "libaom",
+      "powerEfficient": false,
+      "qualityLimitation": "bandwidth",
+      "limitationCounts": {
+        "bandwidth": 18
+      }
+    }
+  }
+}

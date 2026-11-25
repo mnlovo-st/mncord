@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="midnight">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- API + LiveKit hosts are filled at build time from VITE_MNCORD_API / VITE_MNCORD_RTC (dev: 127.0.0.1) -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob: %VITE_MNCORD_CSP_MEDIA%; media-src 'self' blob: mediastream: %VITE_MNCORD_CSP_MEDIA%; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' %VITE_MNCORD_CSP_CONNECT%; object-src 'none'; base-uri 'none'; form-action 'none'" />
+    <title>mncord</title>
+    <link rel="icon" href="./assets/mark-m.webp" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./app/main.tsx"></script>
+  </body>
+</html>

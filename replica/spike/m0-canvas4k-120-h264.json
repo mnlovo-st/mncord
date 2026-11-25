@@ -1,0 +1,102 @@
+{
+  "mode": "canvas4k",
+  "fps": 120,
+  "codec": "h264",
+  "seconds": 25,
+  "features": "",
+  "viewer": {
+    "summary": {
+      "samples": 17,
+      "fps": {
+        "median": 119,
+        "min": 109,
+        "max": 122
+      },
+      "kbps": {
+        "median": 17444.5,
+        "min": 8710,
+        "max": 28048.8
+      },
+      "width": {
+        "median": 960,
+        "min": 320,
+        "max": 1920
+      },
+      "height": {
+        "median": 540,
+        "min": 180,
+        "max": 1080
+      },
+      "jitterMs": {
+        "median": 9.6,
+        "min": 7.6,
+        "max": 14.5
+      },
+      "codec": "H264",
+      "framesDropped": 0,
+      "freezeCount": 0,
+      "freezeSeconds": 0,
+      "limitationCounts": {
+        "none": 17
+      }
+    }
+  },
+  "publisher": {
+    "captureSettings": {
+      "aspectRatio": 1.7777777777777777,
+      "deviceId": "aeOdB+lxoqp6zqVCZlcNkNc/63bmKWtMJQpVqhIEk/r+0RnsMxAtgXT2oWHHHl3gLy38uyN585NNlCn1wjapTw==",
+      "frameRate": 120,
+      "height": 2160,
+      "resizeMode": "none",
+      "width": 3840
+    },
+    "micChain": true,
+    "systemAudio": false,
+    "summary": {
+      "samples": 18,
+      "fps": {
+        "median": 120,
+        "min": 109,
+        "max": 121
+      },
+      "captureFps": {
+        "median": 120,
+        "min": 116,
+        "max": 121
+      },
+      "kbps": {
+        "median": 17510.2,
+        "min": 8380.8,
+        "max": 28126.9
+      },
+      "width": {
+        "median": 960,
+        "min": 320,
+        "max": 1920
+      },
+      "height": {
+        "median": 540,
+        "min": 180,
+        "max": 1080
+      },
+      "audioKbps": {
+        "median": 0.1,
+        "min": 0.1,
+        "max": 0.1
+      },
+      "micLevelDb": {
+        "median": -180,
+        "min": -180,
+        "max": -180
+      },
+      "codec": "H264",
+      "encoder": "OpenH264",
+      "powerEfficient": false,
+      "qualityLimitation": "bandwidth",
+      "limitationCounts": {
+        "bandwidth": 18
+      }
+    }
+  },
+  "hwEncodeProfiles": []
+}
