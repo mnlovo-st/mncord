@@ -53,6 +53,7 @@ export default async function setup(project: TestProject) {
   const vars: Record<string, string> = {
     DEV_TOOLS: '1',
     RATE_LIMIT_SCALE: '100',
+    ACCOUNT_GATE: '0', // most tests use fresh accounts directly; gate.test.ts switches it on for itself
     PUBLIC_URL: `http://127.0.0.1:${port}`,
     CF_RTC_BASE: `http://127.0.0.1:${cfPort}`,
     CF_REALTIME_APP_ID: 'test-app',

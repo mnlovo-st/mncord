@@ -15,9 +15,9 @@
     "text-muted": "#a3aec4",
     "text-faint": "#8a96ae",
     "text-link": "#8cbcff",
-    "accent": "#f4b740",
-    "accent-hover": "#ffc95e",
-    "on-accent": "#1a1304",
+    "accent": "#5a63eb",
+    "accent-hover": "#4c55d9",
+    "on-accent": "#ffffff",
     "chrome": "#c9d3e3",
     "on-chrome": "#10151f",
     "danger": "#e5484d",
@@ -35,7 +35,7 @@
     "status-streaming": "#9d72ff",
     "mention-bg": "#1f1b0e",
     "focus-ring": "#8cbcff",
-    "accent-text": "#f4b740"
+    "accent-text": "#a3a9ff"
   },
   "pairs": [
     [

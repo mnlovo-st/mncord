@@ -1,4 +1,6 @@
 // S24 user settings (full screen) · S25 voice settings
+import { ApprovalsTab, usePending } from './Approvals';
+import { ProfileTab } from './ProfileTab';
 import type { SelfUser, SessionInfo } from '@mncord/shared';
 import { Check, Copy, KeyRound, LogOut, Monitor, ShieldCheck, Smartphone, X } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -18,11 +20,13 @@ import { setPrefs, usePrefs } from '../prefs';
 import { set, useStore } from '../store';
 import { setSuppression } from '../voice';
 
-type Tab = 'account' | 'security' | 'devices' | 'appearance' | 'language' | 'voice' | 'windows';
+type Tab = 'account' | 'profile' | 'security' | 'devices' | 'appearance' | 'language' | 'voice' | 'windows' | 'approvals';
 
 export function SettingsScreen({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('account');
+  const isOwner = useStore((s) => !!s.me?.isOwner);
+  const pending = usePending((s) => s.count);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !document.querySelector('[role=dialog][data-state=open], [role=alertdialog]') && onClose(); // our own full-screen panel is a dialog too: only a modal on top of it blocks Esc
     addEventListener('keydown', onKey);
@@ -30,8 +34,9 @@ export function SettingsScreen({ onClose }: { onClose: () => void }) {
   }, [onClose]);
 
   const nav: [string, [Tab, string][]][] = [
-    [t('settings.user'), [['account', t('settings.account')], ['security', t('settings.security')], ['devices', t('settings.devices')]]],
+    [t('settings.user'), [['account', t('settings.account')], ['profile', t('profileEdit.title')], ['security', t('settings.security')], ['devices', t('settings.devices')]]],
     [t('settings.app'), [['appearance', t('settings.appearance')], ['voice', t('settings.voice')], ['language', t('settings.language')], ['windows', t('win.title')]]],
+    ...(isOwner ? ([[t('approvals.group'), [['approvals', pending ? `${t('approvals.title')} (${pending})` : t('approvals.title')]]]] as [string, [Tab, string][]][]) : []),
   ];
 
   return (
@@ -63,12 +68,14 @@ export function SettingsScreen({ onClose }: { onClose: () => void }) {
       <div className="relative min-w-0 flex-1 overflow-y-auto px-10 py-14">
         <div className="max-w-[740px]">
           {tab === 'account' && <AccountTab />}
+          {tab === 'profile' && <ProfileTab />}
           {tab === 'security' && <SecurityTab />}
           {tab === 'devices' && <DevicesTab />}
           {tab === 'appearance' && <AppearanceTab />}
           {tab === 'language' && <LanguageTab />}
           {tab === 'voice' && <VoiceTab />}
           {tab === 'windows' && <WindowsTab />}
+          {tab === 'approvals' && <ApprovalsTab />}
         </div>
         <button type="button" onClick={onClose} aria-label={t('settings.close')} className="fixed end-10 top-14 flex flex-col items-center gap-1 text-faint hover:text-text">
           <span className="grid size-9 place-items-center rounded-full border-2 border-current"><X className="size-5" /></span>

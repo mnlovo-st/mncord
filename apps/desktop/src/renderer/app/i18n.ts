@@ -108,6 +108,10 @@ const en = {
   status: { online: 'Online', idle: 'Idle', dnd: 'Do not disturb', offline: 'Offline', invisible: 'Invisible', custom: 'Set a custom status' },
   mfa: { title: 'Two-factor authentication', sub: 'Enter the 6-digit code from your authenticator app.', code: 'Code', backupHint: 'Lost your phone? Enter one of your backup codes (xxxx-xxxx).', verify: 'Verify', back: 'Back to sign in' },
   forgot: { title: 'Reset your password', sub: 'We will email you a 6-digit code.', send: 'Send code', codeSent: 'If that email has an account, a code is on its way.', code: 'Code from the email', newPassword: 'New password', reset: 'Reset password' },
+  profileEdit: { title: 'Profiles', displayName: 'Display name', pronouns: 'Pronouns', pronounsHint: 'he/him, she/her, they/them…', avatar: 'Avatar', changeAvatar: 'Change avatar', banner: 'Profile banner', changeBanner: 'Upload banner', remove: 'Remove', color: 'Profile colour', custom: 'Custom colour', default: 'Use default', status: 'Custom status', statusHint: 'What are you up to?', about: 'About me', save: 'Save changes', reset: 'Reset', saved: 'Saved.', preview: 'Preview' },
+  titlebar: { back: 'Back', forward: 'Forward', inbox: 'Inbox', mentions: 'Mentions', noMentions: 'No mentions yet. When someone @mentions you, it shows up here.', help: 'Help' },
+  approvals: { group: 'Owner', title: 'Approvals', sub: 'New accounts can use mncord only after you approve them, once. Declining switches the account off.', empty: 'Nobody is waiting right now.', approve: 'Approve', decline: 'Decline', verified: 'email verified', unverified: 'email not verified yet' },
+  gate: { verifyTitle: 'Check your email', verifySub: 'Enter the 6-digit code we sent to {{email}} to finish creating your account.', spam: 'No email? Check your spam folder, or send a new code.', pendingTitle: 'Waiting for approval', pendingSub: 'Your email is verified. The mncord owner reviews every new account; you can start as soon as yours is approved. This page checks by itself every few seconds.', check: 'Check again', stillWaiting: 'Not approved yet. We will keep checking.' },
   verifyEmail: { banner: 'Please verify your email to keep your account safe.', action: 'Verify now', title: 'Verify your email', sub: 'We sent a 6-digit code to {{email}}.', code: 'Code', confirm: 'Verify', resend: 'Send a new code', resent: 'New code sent.', done: 'Email verified. Thank you!' },
   settings: {
     title: 'Settings', user: 'User settings', app: 'App settings', account: 'My account', security: 'Privacy & security', devices: 'Devices', appearance: 'Appearance', language: 'Language', voice: 'Voice & audio', logout: 'Sign out', close: 'Close settings',
@@ -231,6 +235,10 @@ const ar: typeof en = {
   status: { online: 'متصل', idle: 'خامل', dnd: 'عدم الإزعاج', offline: 'غير متصل', invisible: 'مخفي', custom: 'اكتب حالة مخصصة' },
   mfa: { title: 'التحقق بخطوتين', sub: 'أدخل الرمز المكوّن من 6 أرقام من تطبيق المصادقة.', code: 'الرمز', backupHint: 'فقدت هاتفك؟ أدخل أحد رموزك الاحتياطية (xxxx-xxxx).', verify: 'تحقّق', back: 'العودة إلى تسجيل الدخول' },
   forgot: { title: 'إعادة تعيين كلمة المرور', sub: 'سنرسل إليك رمزًا من 6 أرقام عبر البريد.', send: 'أرسل الرمز', codeSent: 'إن كان لهذا البريد حساب فالرمز في طريقه إليك.', code: 'الرمز من البريد', newPassword: 'كلمة المرور الجديدة', reset: 'إعادة التعيين' },
+  profileEdit: { title: 'الملفات الشخصية', displayName: 'الاسم المعروض', pronouns: 'الضمائر', pronounsHint: 'هو، هي…', avatar: 'الصورة الشخصية', changeAvatar: 'تغيير الصورة', banner: 'غلاف الملف الشخصي', changeBanner: 'رفع غلاف', remove: 'إزالة', color: 'لون الملف الشخصي', custom: 'لون مخصص', default: 'اللون الافتراضي', status: 'الحالة المخصصة', statusHint: 'ماذا تفعل الآن؟', about: 'نبذة عني', save: 'حفظ التغييرات', reset: 'إعادة', saved: 'تم الحفظ.', preview: 'معاينة' },
+  titlebar: { back: 'رجوع', forward: 'تقدّم', inbox: 'البريد الوارد', mentions: 'الإشارات', noMentions: 'لا توجد إشارات بعد. عندما يذكرك أحد بـ@ ستظهر هنا.', help: 'مساعدة' },
+  approvals: { group: 'المالك', title: 'الموافقات', sub: 'لا يستطيع أي حساب جديد استخدام mncord إلا بعد موافقتك عليه مرة واحدة. الرفض يوقف الحساب.', empty: 'لا يوجد أحد بالانتظار حاليًا.', approve: 'موافقة', decline: 'رفض', verified: 'البريد مؤكَّد', unverified: 'البريد غير مؤكَّد بعد' },
+  gate: { verifyTitle: 'تحقّق من بريدك الإلكتروني', verifySub: 'أدخل الرمز المكوّن من 6 أرقام الذي أرسلناه إلى {{email}} لإكمال إنشاء حسابك.', spam: 'لم تصلك الرسالة؟ تحقّق من مجلد الرسائل غير المرغوب فيها، أو أرسل رمزًا جديدًا.', pendingTitle: 'بانتظار الموافقة', pendingSub: 'تم تأكيد بريدك الإلكتروني. يراجع مالك mncord كل حساب جديد، ويمكنك البدء فور الموافقة على حسابك. تتحقق هذه الصفحة تلقائيًا كل بضع ثوانٍ.', check: 'تحقّق الآن', stillWaiting: 'لم تتم الموافقة بعد. سنواصل التحقق.' },
   verifyEmail: { banner: 'يُرجى تأكيد بريدك الإلكتروني للحفاظ على أمان حسابك.', action: 'أكّد الآن', title: 'تأكيد البريد الإلكتروني', sub: 'أرسلنا رمزًا من 6 أرقام إلى {{email}}.', code: 'الرمز', confirm: 'تأكيد', resend: 'أرسل رمزًا جديدًا', resent: 'أُرسل رمز جديد.', done: 'تم تأكيد بريدك. شكرًا لك!' },
   settings: {
     title: 'الإعدادات', user: 'إعدادات المستخدم', app: 'إعدادات التطبيق', account: 'حسابي', security: 'الخصوصية والأمان', devices: 'الأجهزة', appearance: 'المظهر', language: 'اللغة', voice: 'الصوت', logout: 'تسجيل الخروج', close: 'إغلاق الإعدادات',
@@ -268,7 +276,8 @@ void i18n.use(initReactI18next).init({
 export function applyLang(lang: 'en' | 'ar') {
   void i18n.changeLanguage(lang);
   document.documentElement.lang = lang;
-  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  // the layout never flips: rail and sidebars stay on the left in both languages; only the words change
+  document.documentElement.dir = 'ltr';
   try {
     localStorage.setItem('mncord.lang', lang);
   } catch {

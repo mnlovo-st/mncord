@@ -21,6 +21,8 @@
     "CF_RTC_BASE": "https://rtc.live.cloudflare.com/v1",
     "MEDIA_TTL_DAYS": "14",
     "MAX_UPLOAD_MB": "200",
-    "STORAGE_CAP_GB": "9"
+    "STORAGE_CAP_GB": "9",
+    // new accounts: verified email + the owner's one-time approval (owner = first account, or OWNER_EMAIL)
+    "ACCOUNT_GATE": "1"
   }
 }

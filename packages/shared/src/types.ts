@@ -9,6 +9,12 @@ export interface User {
   status: 'online' | 'idle' | 'dnd' | 'invisible';
 }
 export interface SelfUser extends User {
+  /** profile banner image (public picture id) */
+  bannerKey?: string | null;
+  /** false while the owner hasn't approved this account yet */
+  approved?: boolean;
+  /** the instance owner (approves new accounts) */
+  isOwner?: boolean;
   email: string;
   emailVerified: boolean;
   locale: 'en' | 'ar';
@@ -175,6 +181,7 @@ export interface Profile extends User {
   bio: string | null;
   pronouns: string | null;
   accentColor: number | null;
+  bannerKey?: string | null;
   createdAt: string;
 }
 

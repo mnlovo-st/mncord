@@ -18,6 +18,11 @@ export function devRoutes(app: App, db: Db) {
     return { ok: true };
   });
   app.post('/cron', async () => cleanupMedia(db));
+  app.post('/gate', async (req) => {
+    const on = !!(req.body as { on?: boolean }).on;
+    await db.query(`insert into schema_meta (k, v) values ('gate', $1) on conflict (k) do update set v = excluded.v`, [on ? '1' : '0']);
+    return { on };
+  });
   // proves tx() rolls back: insert inside a transaction, then fail
   app.post('/tx-check', async () => {
     const marker = `tx-${Date.now()}`;

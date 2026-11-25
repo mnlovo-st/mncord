@@ -22,6 +22,8 @@ import { hashMatches, newRefreshSecret, sha256, signAccessToken, signMfaTicket, 
 import { consumeCode, issueCode } from '../codes.ts';
 import { esc, sendMail, templates } from '../mail.ts';
 import type { Hub } from '../gateway.ts';
+import { accountState } from '../gate.ts';
+import { announcePending } from './approvals.ts';
 
 
 function ipPrefix(ip: string): string | null {
@@ -182,6 +184,7 @@ export function authRoutes(app: App, db: Db, hub: Hub) {
     const { code } = parse(VerifyEmailInput, req.body);
     if (!(await consumeCode(db, 'verify', req.userId, code))) throw new HttpError(400, 'code_invalid', 'code');
     await db.query(`update users set email_verified = true where id = $1`, [req.userId]);
+    void announcePending(db, hub, req.userId);
     return reply.status(204).send();
   });
 
@@ -227,7 +230,8 @@ export function authRoutes(app: App, db: Db, hub: Hub) {
   app.get('/users/@me', { preHandler: requireAuth }, async (req) => {
     const me = await getSelf(db, req.userId);
     if (!me) throw new HttpError(401, 'unauthorized');
-    return me;
+    const s = accountState(db, req.userId);
+    return { ...me, approved: s.approved, isOwner: s.owner };
   });
 }
 

@@ -16,7 +16,7 @@ light = {
  "bg-deep":"#e2e6ee","bg":"#ffffff","surface":"#f2f4f8","surface-raised":"#ffffff","surface-hover":"#e7ebf2",
  "surface-selected":"#d8dfeb","surface-input":"#eceff4","popover":"#ffffff","border":"#d4dae5","border-input":"#7b879c",
  "text":"#111622","text-muted":"#465166","text-faint":"#5a667b","text-link":"#1858c8",
- "accent":"#f0b02e","accent-hover":"#e09d14","on-accent":"#1a1304","accent-text":"#8a5b00",
+ "accent":"#4f57d9","accent-hover":"#434bc4","on-accent":"#ffffff","accent-text":"#3a41b8",
  "chrome":"#2a3446","on-chrome":"#f2f4f8",
  "danger":"#d9363c","danger-text":"#b4232a","on-danger":"#ffffff","danger-solid":"#c42f35",
  "success":"#16794a","success-solid":"#1a7a4b","on-success":"#ffffff","warning":"#9a5b00",

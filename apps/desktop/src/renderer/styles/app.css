@@ -95,6 +95,9 @@
   }
   :lang(ar) body, :lang(ar) { letter-spacing: 0 !important; }
   :lang(ar) .uppercase { text-transform: none; }
+  /* Arabic UI keeps the left-to-right layout; each line of text still picks its own direction so Arabic
+     sentences read correctly (punctuation at the right end), and stays aligned to the left like the layout */
+  html:lang(ar) :is(p, h1, h2, h3, h4, label, li, dt, dd, small, legend, figcaption, option) { unicode-bidi: plaintext; text-align: left; }
   /* One-line names: let each string pick its own direction so English names in the Arabic UI (and the
      reverse) are cut at their END, while the column stays aligned with the UI side. Utilities still win. */
   .truncate { unicode-bidi: plaintext; }

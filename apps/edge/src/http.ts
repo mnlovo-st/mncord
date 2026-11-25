@@ -34,4 +34,6 @@ export async function requireAuth(req: Req) {
   if (!claims) throw new HttpError(401, 'unauthorized');
   req.userId = claims.sub;
   req.sessionId = claims.sid;
+  const { enforceGate } = await import('./gate.ts');
+  enforceGate(claims.sub, req.method, req.url.split('?')[0]!);
 }

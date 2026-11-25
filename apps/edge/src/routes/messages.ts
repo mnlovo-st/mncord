@@ -255,7 +255,7 @@ export function messageRoutes(app: App, db: Db, hub: Hub) {
     const out: Message[] = [];
     for (const m of await hydrate(db, rows, req.userId)) {
       const cp = await channelPermissions(db, m.channelId, req.userId);
-      if (cp && has(cp.perms, P.VIEW_CHANNEL | P.READ_HISTORY)) out.push(m);
+      if (cp && has(cp.perms, P.VIEW_CHANNEL | P.READ_HISTORY)) out.push({ ...m, guildId: cp.channel.guildId } as Message);
     }
     return out;
   });

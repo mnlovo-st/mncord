@@ -51,6 +51,14 @@ export function accountRoutes(app: App, db: Db, hub: Hub) {
       vals.push(p.avatarFileId);
       sets.push(`avatar_key = $${vals.length}`);
     }
+    if (p.bannerFileId) {
+      const f = await db.query(`update files set attached = true where id = $1 and owner_id = $2 and status = 'ready' and kind in ('avatar','banner') and content_type like 'image/%' and size_bytes <= 10485760 returning id`, [p.bannerFileId, req.userId]);
+      if (!f.rows.length) throw new HttpError(400, 'attachment_invalid');
+    }
+    if (p.bannerFileId !== undefined) {
+      vals.push(p.bannerFileId);
+      sets.push(`banner_key = $${vals.length}`);
+    }
     if (p.customStatus !== undefined) {
       vals.push(p.customStatus ? JSON.stringify(p.customStatus) : null);
       sets.push(`custom_status = $${vals.length}`);

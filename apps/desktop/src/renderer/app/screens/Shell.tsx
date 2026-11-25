@@ -3,10 +3,9 @@ import type { Channel, Guild, Member } from '@mncord/shared';
 import { LogIn, LogOut, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import mark from '../../assets/mark-m.webp';
 import { Avatar } from '../../ui/Avatar';
 import { ChannelCategory, ChannelItem } from '../../ui/ChannelItem';
-import { GuildIcon } from '../../ui/GuildIcon';
+import { GuildIcon, HomeMark } from '../../ui/GuildIcon';
 import { NoticeBar } from '../../ui/Toast';
 import { UserPanel, VoiceConnectedPanel, VoiceUser } from '../../ui/Voice';
 import { api, avatarUrl, signOut } from '../api';
@@ -64,7 +63,7 @@ export function Shell() {
       )}
       <div className="flex min-h-0 flex-1">
         <nav aria-label="Servers" className="flex w-[72px] shrink-0 flex-col items-center gap-2 overflow-y-auto bg-bg-deep py-3">
-          <GuildIcon name={t('rail.home')} src={mark} selected={!selectedGuild} onClick={() => selectGuild(null)} />
+          <GuildIcon name={t('rail.home')} selected={!selectedGuild} onClick={() => selectGuild(null)}><HomeMark /></GuildIcon>
           <div className="h-0.5 w-8 shrink-0 rounded-full bg-border" />
           {guildOrder.map((id) => {
             const g = guilds[id];
@@ -246,7 +245,8 @@ function BottomPanels({ onSettings }: { onSettings: () => void }) {
 
 function GuildMain({ guild }: { guild: Guild }) {
   const selected = useStore((s) => s.selectedChannel[guild.id]);
-  const channel = guild.channels.find((c) => c.id === selected);
+  // opened without a remembered channel (back button, inbox, new server): show the first text channel
+  const channel = guild.channels.find((c) => c.id === selected) ?? guild.channels.find((c) => c.type === 'text' || c.type === 'announcement');
   if (!channel) return null;
   if (channel.type === 'voice') return <VoiceRoom guild={guild} channel={channel} />;
   return <ChatView guild={guild} channel={channel} />;

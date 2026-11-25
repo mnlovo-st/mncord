@@ -7,6 +7,15 @@ import { cn } from './cn';
  * Server icon on the rail. Circle → rounded square on hover/selected with mncord's chrome sheen.
  * The indicator pill sits on the inline-start edge, so it flips to the right in Arabic.
  */
+/** mncord's home mark for the top of the rail: a bold rounded "M", white on the button. */
+export function HomeMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 28 28" aria-hidden className={cn('size-7', className)} fill="none">
+      <path d="M5.5 21V8.6c0-1.1 1.4-1.6 2.1-.8L14 15.2l6.4-7.4c.7-.8 2.1-.3 2.1.8V21" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function GuildIcon({ name, src, children, selected, unread, mentions = 0, onClick, tone = 'default' }: {
   name: string;
   src?: string;

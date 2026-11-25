@@ -13,7 +13,18 @@ const ts = (name: string) => `${name} text not null default ${NOW}`;
 const NORM_CHARS: [string, string][] = [['أ', 'ا'], ['إ', 'ا'], ['آ', 'ا'], ['ٱ', 'ا'], ['ى', 'ي'], ['ة', 'ه'], ['ـ', ''], ['ً', ''], ['ٌ', ''], ['ٍ', ''], ['َ', ''], ['ُ', ''], ['ِ', ''], ['ّ', ''], ['ْ', ''], ['ٰ', '']];
 const NORM = NORM_CHARS.reduce((acc, [a, b]) => `replace(${acc}, '${a}', '${b}')`, 'content');
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
+/** upgrades for databases created by an older version (run in order, each once) */
+export const MIGRATIONS: Record<number, string[]> = {
+  2: [
+    `alter table users add column approved_at text`,
+    `alter table dev_outbox add column html text`,
+    // the smoke-test accounts made while setting up production must not become "the first account" (owner)
+    `delete from guilds where owner_id in (select id from users where email like '%@example.test')`,
+    `delete from users where email like '%@example.test'`,
+    `update users set approved_at = created_at`,
+  ],
+};
 export const SCHEMA = `
 create table if not exists users (
   ${id},
@@ -32,6 +43,7 @@ create table if not exists users (
   two_factor_enabled integer not null default 0,
   disabled_at text,
   deletion_requested_at text,
+  approved_at text,
   ${ts('created_at')}, ${ts('updated_at')}
 );
 

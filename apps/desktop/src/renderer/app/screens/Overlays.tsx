@@ -61,7 +61,7 @@ export function ProfileCard() {
 
   return (
     <div ref={ref} role="dialog" aria-label={p?.displayName ?? p?.username ?? ''} className="anim-pop fixed z-50 w-[300px] overflow-hidden rounded-lg bg-popover shadow-pop" style={pos}>
-      <div className="h-[60px]" style={{ background: p?.accentColor != null ? `#${p.accentColor.toString(16).padStart(6, '0')}` : 'linear-gradient(120deg, color-mix(in srgb, var(--c-accent) 50%, #000), color-mix(in srgb, var(--c-text-link) 40%, #000))' }} />
+      <div className="h-[60px] bg-cover bg-center" style={{ backgroundImage: p?.bannerKey ? `url(${avatarUrl(p.bannerKey)})` : undefined, background: p?.bannerKey ? undefined : p?.accentColor != null ? `#${p.accentColor.toString(16).padStart(6, '0')}` : 'linear-gradient(120deg, color-mix(in srgb, var(--c-accent) 50%, #000), color-mix(in srgb, var(--c-text-link) 40%, #000))' }} />
       <div className="px-4 pb-4">
         <div className="-mt-10 mb-2 w-fit rounded-full border-[6px] border-popover"><Avatar name={p?.displayName ?? p?.username ?? '…'} src={avatarUrl(p?.avatarKey)} size={80} status={status} cutout="border-popover" /></div>
         {!p ? (

@@ -14,9 +14,9 @@
   --c-text-muted: #a3aec4;
   --c-text-faint: #8a96ae;
   --c-text-link: #8cbcff;
-  --c-accent: #f4b740;
-  --c-accent-hover: #ffc95e;
-  --c-on-accent: #1a1304;
+  --c-accent: #5a63eb;
+  --c-accent-hover: #4c55d9;
+  --c-on-accent: #ffffff;
   --c-chrome: #c9d3e3;
   --c-on-chrome: #10151f;
   --c-danger: #e5484d;
@@ -34,7 +34,7 @@
   --c-status-streaming: #9d72ff;
   --c-mention-bg: #2c2817;
   --c-focus-ring: #8cbcff;
-  --c-accent-text: #f4b740;
+  --c-accent-text: #a3a9ff;
 }
   :root { color-scheme: dark; }
 [data-theme="light"] {
@@ -52,9 +52,9 @@
   --c-text-muted: #465166;
   --c-text-faint: #5a667b;
   --c-text-link: #1858c8;
-  --c-accent: #f0b02e;
-  --c-accent-hover: #e09d14;
-  --c-on-accent: #1a1304;
+  --c-accent: #4f57d9;
+  --c-accent-hover: #434bc4;
+  --c-on-accent: #ffffff;
   --c-chrome: #2a3446;
   --c-on-chrome: #f2f4f8;
   --c-danger: #d9363c;
@@ -72,7 +72,7 @@
   --c-status-streaming: #7c4dff;
   --c-mention-bg: #fdf3d9;
   --c-focus-ring: #1858c8;
-  --c-accent-text: #8a5b00;
+  --c-accent-text: #3a41b8;
   color-scheme: light;
 }
 [data-theme="amoled"] {
@@ -90,9 +90,9 @@
   --c-text-muted: #a3aec4;
   --c-text-faint: #8a96ae;
   --c-text-link: #8cbcff;
-  --c-accent: #f4b740;
-  --c-accent-hover: #ffc95e;
-  --c-on-accent: #1a1304;
+  --c-accent: #5a63eb;
+  --c-accent-hover: #4c55d9;
+  --c-on-accent: #ffffff;
   --c-chrome: #c9d3e3;
   --c-on-chrome: #10151f;
   --c-danger: #e5484d;
@@ -110,7 +110,7 @@
   --c-status-streaming: #9d72ff;
   --c-mention-bg: #1f1b0e;
   --c-focus-ring: #8cbcff;
-  --c-accent-text: #f4b740;
+  --c-accent-text: #a3a9ff;
 }
 :root {
   --font-sans: "Inter Variable", "Inter", "IBM Plex Sans Arabic", system-ui, "Segoe UI", sans-serif;

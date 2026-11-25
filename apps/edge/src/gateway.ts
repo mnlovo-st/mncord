@@ -33,6 +33,7 @@ import {
   type MessageRow,
 } from './repo.ts';
 import { sessionActive } from './routes/auth.ts';
+import { accountState, gateOn } from './gate.ts';
 
 const Frame = z.discriminatedUnion('op', [
   z.object({ op: z.literal('identify'), token: z.string().max(2000) }),
@@ -159,6 +160,11 @@ export class Hub {
     if (!claims || !(await sessionActive(this.db, claims.sid, claims.sub))) return c.ws.close(CLOSE.AUTH_FAILED, 'auth failed');
     const user = await getSelf(this.db, claims.sub);
     if (!user) return c.ws.close(CLOSE.AUTH_FAILED, 'auth failed');
+    // waiting accounts (email not verified / owner hasn't approved) get no live data
+    const gate = accountState(this.db as Db, claims.sub);
+    if (!gate.verified && gateOn()) return c.ws.close(CLOSE.AUTH_FAILED, 'email unverified');
+    if (!gate.approved) return c.ws.close(CLOSE.AUTH_FAILED, 'approval pending');
+    const self = { ...user, approved: gate.approved, isOwner: gate.owner };
     const userId = claims.sub;
     c.userId = userId;
     c.sessionId = claims.sid;
@@ -188,7 +194,7 @@ export class Hub {
       [userId],
     );
 
-    this.dispatch(c, { t: 'READY', d: { sessionId: c.gatewayId, user, guilds, voiceStates, relationships, privateChannels, presences, calls, readStates: rs.rows, heartbeatMs: HEARTBEAT_MS } });
+    this.dispatch(c, { t: 'READY', d: { sessionId: c.gatewayId, user: self, guilds, voiceStates, relationships, privateChannels, presences, calls, readStates: rs.rows, heartbeatMs: HEARTBEAT_MS } });
     if (firstConn) await this.broadcastPresence(userId, visible);
   }
 

@@ -8,11 +8,13 @@ import { accountRoutes } from './routes/account.ts';
 import { adminRoutes } from './routes/admin.ts';
 import { authRoutes } from './routes/auth.ts';
 import { cleanupMedia, uploadRoutes } from './routes/files.ts';
+import { approvalRoutes } from './routes/approvals.ts';
 import { guildRoutes } from './routes/guilds.ts';
 import { messageRoutes } from './routes/messages.ts';
 import { socialRoutes } from './routes/social.ts';
 import { voiceRoutes } from './routes/voice.ts';
-import { SCHEMA, SCHEMA_VERSION } from './schema.ts';
+import { MIGRATIONS, SCHEMA, SCHEMA_VERSION } from './schema.ts';
+import { setGateDb } from './gate.ts';
 import { App, json } from './shim.ts';
 import { devRoutes } from './dev.ts';
 import { setMailDb } from './mail.ts';
@@ -77,10 +79,24 @@ export class MncordHub extends DurableObject<Env> {
       ctx.storage.sql.exec('create table if not exists schema_meta (k text primary key, v text not null)');
       const v =this.db.querySync<{ v: string }>(`select v from schema_meta where k = 'version'`).at(0)?.v;
       if (v !== String(SCHEMA_VERSION)) {
+        const from = v ? Number(v) : 0;
+        if (from > 0) {
+          // existing database: run the upgrades it hasn't seen yet
+          for (let n = from + 1; n <= SCHEMA_VERSION; n++)
+            for (const stmt of MIGRATIONS[n] ?? []) {
+              try {
+                ctx.storage.sql.exec(stmt);
+              } catch (e) {
+                // re-running an upgrade on a database that already has the column is fine
+                if (!/duplicate column/i.test(String((e as Error)?.message))) throw e;
+              }
+            }
+        }
         ctx.storage.sql.exec(SCHEMA);
         ctx.storage.sql.exec(`insert into schema_meta (k, v) values ('version', ?) on conflict (k) do update set v = excluded.v`, String(SCHEMA_VERSION));
       }
       setMailDb(this.db);
+      setGateDb(this.db);
       this.hub = new Hub(this.db);
       const root = new App();
       const api = root.scope('/api/v1');
@@ -92,6 +108,7 @@ export class MncordHub extends DurableObject<Env> {
       socialRoutes(api.scope(), this.db, this.hub);
       voiceRoutes(api.scope(), this.db, this.hub);
       uploadRoutes(api.scope(), this.db);
+      approvalRoutes(api.scope(), this.db, this.hub);
       if (env.DEV_TOOLS === '1') devRoutes(root.scope('/__dev'), this.db);
       this.app = root;
       void requireAuth; // keep import (used by route modules)

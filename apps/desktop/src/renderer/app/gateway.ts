@@ -181,6 +181,9 @@ function handle(f: Extract<ServerFrame, { op: 'dispatch' }>) {
     case 'PRESENCE_UPDATE':
       set((s) => ({ presence: { ...s.presence, [f.d.userId]: f.d.status } }));
       break;
+    case 'APPROVAL_REQUEST' as never:
+      void import('./screens/Approvals').then((m) => m.onApprovalRequest((f as unknown as { d: { username: string; displayName: string | null } }).d));
+      break;
     case 'RELATIONSHIP_ADD':
       set((s) => ({ relationships: { ...s.relationships, [f.d.id]: f.d }, names: { ...s.names, [f.d.id]: f.d.user.displayName ?? f.d.user.username } }));
       if (f.d.type === 'incoming') void import('./sounds').then((m) => m.playSound('message'));

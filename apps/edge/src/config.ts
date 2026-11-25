@@ -22,6 +22,10 @@ export interface Env {
   /** "1" only in local development and tests: enables /__dev/* and per-test database instances */
   DEV_TOOLS?: string;
   RATE_LIMIT_SCALE?: string;
+  /** "1": new accounts need a verified email and the owner's approval */
+  ACCOUNT_GATE?: string;
+  /** owner's email (approves new accounts); unset = the first account */
+  OWNER_EMAIL?: string;
 }
 
 let current: Env | null = null;

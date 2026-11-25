@@ -99,6 +99,7 @@ export const UpdateProfileInput = z.object({
   status: z.enum(['online', 'idle', 'dnd', 'invisible']).optional(),
   accentColor: z.number().int().min(0).max(0xffffff).nullable().optional(),
   avatarFileId: z.uuid().nullable().optional(),
+  bannerFileId: z.uuid().nullable().optional(),
   customStatus: z.object({ text: z.string().trim().max(128), emoji: z.string().max(64).nullable().optional(), expiresAt: z.iso.datetime().nullable().optional() }).nullable().optional(),
 });
 export const ChangeUsernameInput = z.object({ username, password: z.string().min(1).max(128) });

@@ -23,7 +23,7 @@ export async function getSelf(db: Queryable, userId: string): Promise<SelfUser |
   const { rows } = await db.query<SelfUser>(
     `select ${USER_COLS}, u.email::text as email, u.email_verified as "emailVerified", u.locale,
             u.two_factor_enabled as "mfaEnabled", u.bio, u.pronouns, u.accent_color as "accentColor",
-            u.deletion_requested_at as "deletionRequestedAt", u.custom_status as "customStatus"
+            u.deletion_requested_at as "deletionRequestedAt", u.custom_status as "customStatus", u.banner_key as "bannerKey"
        from users u where u.id = $1 and u.disabled_at is null`,
     [userId],
   );

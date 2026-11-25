@@ -284,7 +284,7 @@ export function socialRoutes(app: App, db: Db, hub: Hub) {
     if (!/^[0-9a-f-]{36}$/.test(req.params.id)) throw notFound();
     const { rows } = await db.query<FullProfile & { createdAt: Date }>(
       `select u.id, u.username::text as username, u.display_name as "displayName", u.avatar_key as "avatarKey", u.status,
-              u.bio, u.pronouns, u.accent_color as "accentColor", u.created_at as "createdAt"
+              u.bio, u.pronouns, u.accent_color as "accentColor", u.banner_key as "bannerKey", u.created_at as "createdAt"
          from users u where u.id = $1 and u.disabled_at is null`,
       [req.params.id],
     );
