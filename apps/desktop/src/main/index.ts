@@ -156,10 +156,10 @@ function setupSession() {
   const ses = session.defaultSession;
   // Only our own pages may use mic / camera / screen; everything else is denied.
   ses.setPermissionRequestHandler((wc, permission, cb) => {
-    const ok = isOurOrigin(wc.getURL()) && ['media', 'display-capture', 'notifications', 'clipboard-sanitized-write'].includes(permission);
+    const ok = isOurOrigin(wc.getURL()) && ['media', 'display-capture', 'notifications', 'clipboard-sanitized-write', 'fullscreen'].includes(permission);
     cb(ok);
   });
-  ses.setPermissionCheckHandler((wc, permission) => !!wc && isOurOrigin(wc.getURL()) && ['media', 'display-capture'].includes(permission));
+  ses.setPermissionCheckHandler((wc, permission) => !!wc && isOurOrigin(wc.getURL()) && ['media', 'display-capture', 'fullscreen'].includes(permission));
 
   // getDisplayMedia → the source chosen in our own Go Live picker (or the primary screen in spike mode).
   ses.setDisplayMediaRequestHandler(

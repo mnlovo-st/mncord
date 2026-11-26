@@ -176,13 +176,28 @@ function handle(f: Extract<ServerFrame, { op: 'dispatch' }>) {
     case 'TYPING_START':
       set((s) => ({ typing: { ...s.typing, [f.d.channelId]: { ...s.typing[f.d.channelId], [f.d.userId]: Date.now() + 8000 } } }));
       break;
-    case 'VOICE_STATE_UPDATE':
+    case 'VOICE_STATE_UPDATE': {
+      // someone else entered / left the voice channel you're in: play the join / leave sound for you too
+      const st = get();
+      const meId = st.me?.id;
+      if (f.d.userId !== meId) void import('./voice').then((v) => {
+        const mine = v.useVoice.getState().channelId;
+        if (!mine) return;
+        const before = st.voice[f.d.userId]?.channelId;
+        const after = f.d.left ? undefined : f.d.channelId;
+        if (before !== mine && after === mine) playSound('join');
+        else if (before === mine && after !== mine) playSound('leave');
+      });
       set((s) => {
         const v = { ...s.voice };
         if (f.d.left) delete v[f.d.userId];
         else v[f.d.userId] = f.d;
         return { voice: v };
       });
+      break;
+    }
+    case 'STREAM_VIEWER' as never:
+      playSound('stream_start'); // someone started watching your stream
       break;
     case 'PRESENCE_UPDATE':
       set((s) => {

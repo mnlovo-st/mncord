@@ -276,6 +276,8 @@ export type MediaSource = 'mic' | 'camera' | 'screen' | 'screen_audio';
 export interface RtcParticipant {
   userId: string;
   sources: MediaSource[]; // tracks this person is publishing right now
+  /** generation of each track (changes when republished) */
+  mids?: Partial<Record<MediaSource, string>>;
 }
 export interface RtcJoin {
   sessionId: string;

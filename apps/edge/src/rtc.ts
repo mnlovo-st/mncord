@@ -75,14 +75,18 @@ export interface RtcUser {
   channelId: string;
   sessionId: string;
   published: Map<MediaSource, string>; // source → mid on their session
-  pulls: Map<string, { mid: string; bps: number; since: number }>; // `${userId}:${source}` → pulled mid
+  pulls: Map<string, { mid: string; bps: number; since: number; pubMid?: string }>; // `${userId}:${source}` → pulled mid (+ which publish it came from)
 }
 
 export const rtcUsers = new Map<string, RtcUser>();
+/** a track was republished or stopped: everyone's old subscription to it is dead (they must pull again) */
+export function forgetPullsOf(userId: string, source: MediaSource) {
+  for (const other of rtcUsers.values()) other.pulls.delete(`${userId}:${source}`);
+}
 export const trackName = (userId: string, source: MediaSource) => `${userId}:${source}`;
 
 export function participants(channelId: string): RtcParticipant[] {
-  return [...rtcUsers.values()].filter((u) => u.channelId === channelId).map((u) => ({ userId: u.userId, sources: [...u.published.keys()] }));
+  return [...rtcUsers.values()].filter((u) => u.channelId === channelId).map((u) => ({ userId: u.userId, sources: [...u.published.keys()], mids: Object.fromEntries(u.published) }));
 }
 
 // ── egress meter. Cloudflare bills what it SENDS to viewers, so each pull counts at the track's max bitrate.

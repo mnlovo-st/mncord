@@ -24,6 +24,7 @@ export class RtcEngine {
   private queue: Promise<unknown> = Promise.resolve();
   private midTo = new Map<string, { userId: string; source: MediaSource }>();
   private remote = new Map<string, string>(); // `${userId}:${source}` → mid
+  private gens = new Map<string, string>(); // `${userId}:${source}` → which publish we're receiving
   private local = new Map<MediaSource, RTCRtpTransceiver>();
   onTrack: TrackCb = () => {};
   onEnded: EndCb = () => {};
@@ -156,11 +157,11 @@ export class RtcEngine {
 
   isPublishing = (source: MediaSource) => this.local.has(source);
   isSubscribed = (userId: string, source: MediaSource) => this.remote.has(`${userId}:${source}`);
-  replaceTrack = (source: MediaSource, track: MediaStreamTrack | null) => this.local.get(source)?.sender.replaceTrack(track);
 
-  subscribe(list: { userId: string; source: MediaSource }[]) {
+  subscribe(list: { userId: string; source: MediaSource; gen?: string }[]) {
     return this.run(async () => {
-      const todo = list.filter((x) => !this.remote.has(`${x.userId}:${x.source}`));
+      const todo = list.filter((x) => !this.remote.has(`${x.userId}:${x.source}`)).map(({ userId, source }) => ({ userId, source }));
+      const genOf = new Map(list.map((x) => [`${x.userId}:${x.source}`, x.gen]));
       if (!todo.length) return;
       const res = await api<{ sessionDescription?: SessionDescription; requiresImmediateRenegotiation?: boolean; tracks: { userId: string; source: MediaSource; mid: string }[] }>(
         'POST', `/voice/${this.channelId}/pull`, { tracks: todo },
@@ -168,6 +169,8 @@ export class RtcEngine {
       for (const t of res.tracks) {
         this.midTo.set(t.mid, { userId: t.userId, source: t.source });
         this.remote.set(`${t.userId}:${t.source}`, t.mid);
+        const g = genOf.get(`${t.userId}:${t.source}`);
+        if (g) this.gens.set(`${t.userId}:${t.source}`, g);
       }
       if (res.sessionDescription && res.requiresImmediateRenegotiation !== false) {
         await this.pc.setRemoteDescription(res.sessionDescription);
@@ -184,10 +187,36 @@ export class RtcEngine {
       const mid = this.remote.get(key);
       if (!mid) return;
       this.remote.delete(key);
+      this.gens.delete(key);
       this.midTo.delete(mid);
       this.onEnded(userId, source);
       if (tellServer) await api('POST', `/voice/${this.channelId}/close`, { mids: [mid] }).catch(() => {});
     });
+  }
+
+  /** someone republished a track (new mic, restarted stream): drop our dead copy so it's pulled again */
+  dropStale(userId: string, mids: Partial<Record<MediaSource, string>> | undefined) {
+    if (!mids) return;
+    for (const [key, mid] of [...this.remote]) {
+      const [uid, source] = key.split(':') as [string, MediaSource];
+      if (uid !== userId) continue;
+      const now = mids[source];
+      const had = this.gens.get(key);
+      if (now && had && now !== had) {
+        this.remote.delete(key);
+        this.gens.delete(key);
+        this.midTo.delete(mid);
+        this.onEnded(uid, source);
+      }
+    }
+  }
+
+  /** swap the track we send (new mic device / settings) without renegotiating: listeners never lose us */
+  async replaceTrack(source: MediaSource, track: MediaStreamTrack) {
+    const tr = this.local.get(source);
+    if (!tr) return false;
+    await tr.sender.replaceTrack(track);
+    return true;
   }
 
   /** a publisher stopped or left: forget their tracks (the SFU already ended them) */
@@ -196,6 +225,7 @@ export class RtcEngine {
       const [uid, source] = key.split(':') as [string, MediaSource];
       if (uid !== userId || keep.includes(source)) continue;
       this.remote.delete(key);
+      this.gens.delete(key);
       this.midTo.delete(mid);
       this.onEnded(uid, source);
     }

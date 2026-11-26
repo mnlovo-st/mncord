@@ -53,7 +53,8 @@ export type DispatchEvent =
   | { t: 'CALL_UPDATE'; d: Call }
   | { t: 'CALL_DELETE'; d: { channelId: string } }
   | { t: 'USER_UPDATE'; d: User }
-  | { t: 'RTC_TRACKS'; d: { channelId: string; userId: string; sources: MediaSource[] } }
+  | { t: 'RTC_TRACKS'; d: { channelId: string; userId: string; sources: MediaSource[]; /** track generation per source: changes when it is republished */ mids?: Partial<Record<MediaSource, string>> } }
+  | { t: 'STREAM_VIEWER'; d: { channelId: string; userId: string; watching: boolean } }
   | { t: 'RTC_FORCE'; d: { channelId: string; serverMute: boolean; serverDeaf: boolean; allowed: MediaSource[] } };
 
 export type ServerFrame =

@@ -3,6 +3,26 @@ export interface Release { version: string; date: string; en: string[]; ar: stri
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.2.2',
+    date: '2026-11-26',
+    en: [
+      'Fixed: changing mic settings in a call no longer makes your voice disappear',
+      'Fixed: you always see a friend's screen share, even when they restart it',
+      'Fixed: private calls, and calls heal themselves if someone stops being heard',
+      'Fullscreen works for screen shares',
+      'Everyone hears the join and leave sounds, and you hear when someone starts watching your stream',
+      'Show or hide servers, channels and members (buttons at the top, or Ctrl+Alt+1/2/3)',
+    ],
+    ar: [
+      'انحلت: تعديل المايك وأنت في مكالمة ما عاد يخفي صوتك',
+      'انحلت: تشوف شير صاحبك دايماً حتى لو أعاد تشغيله',
+      'انحلت: المكالمات الخاصة، والمكالمة تصلح نفسها إذا واحد صار ما ينسمع',
+      'ملء الشاشة يشتغل في مشاركة الشاشة',
+      'الكل يسمع صوت الدخول والطلعة، وتسمع صوت لما أحد يدخل يشوف شيرك',
+      'إظهار وإخفاء السيرفرات والرومات والأعضاء (أزرار فوق أو Ctrl+Alt+1/2/3)',
+    ],
+  },
+  {
     version: '1.2.1',
     date: '2026-11-26',
     en: ['New green Dev badge', 'Everything from 1.2.0: clearer voice, Discord-style menus, activity, cosmetics and more'],

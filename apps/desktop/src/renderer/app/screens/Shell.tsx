@@ -56,6 +56,7 @@ export function Shell() {
   const rightPanel = useStore((s) => s.rightPanel);
   useNotif((s) => s.list); // re-render when mute settings change
   const readStates = useStore((s) => s.readStates);
+  const layout = { rail: !usePrefs((p) => p.hideRail), sidebar: !usePrefs((p) => p.hideSidebar), members: !usePrefs((p) => p.hideMembers) };
   const selectedChannelKey = useStore((s) => (s.selectedGuild ? s.selectedChannel[s.selectedGuild] : s.selectedPrivate) ?? '');
 
   useEffect(() => {
@@ -85,7 +86,7 @@ export function Shell() {
         <NoticeBar tone="warning" action={<Button size="sm" variant="secondary" className="h-6" onClick={() => setModal('verify')}>{t('verifyEmail.action')}</Button>}>{t('verifyEmail.banner')}</NoticeBar>
       )}
       <div className="flex min-h-0 flex-1">
-        <nav aria-label="Servers" className="flex w-[72px] shrink-0 flex-col items-center gap-2 overflow-y-auto bg-bg-deep py-3 [scrollbar-width:none]">
+        <nav aria-label="Servers" style={layout.rail ? undefined : { display: 'none' }} className="flex w-[72px] shrink-0 flex-col items-center gap-2 overflow-y-auto bg-bg-deep py-3 [scrollbar-width:none]">
           <GuildIcon name={t('rail.home')} selected={!selectedGuild} onClick={() => selectGuild(null)}><HomeMark /></GuildIcon>
           <div className="h-0.5 w-8 shrink-0 rounded-full bg-border" />
           {guildOrder.map((id) => {
@@ -128,7 +129,7 @@ export function Shell() {
           <GuildIcon name={t('rail.join')} tone="action" onClick={() => setModal('join')}><LogIn className="size-5 rtl:-scale-x-100" /></GuildIcon>
         </nav>
 
-        <aside className="flex w-60 shrink-0 flex-col bg-surface">
+        <aside style={layout.sidebar ? undefined : { display: 'none' }} className="flex w-60 shrink-0 flex-col bg-surface">
           <ErrorBoundary area="sidebar" resetKey={selectedGuild}>
             {guild ? <GuildSidebar key={guild.id} guild={guild} onInvite={() => setModal('invite')} /> : <HomeSidebar />}
           </ErrorBoundary>
@@ -137,7 +138,7 @@ export function Shell() {
 
         <main className="flex min-w-0 flex-1 flex-col bg-bg"><ErrorBoundary area="main" resetKey={`${selectedGuild}:${selectedChannelKey}`}>{guild ? <GuildMain guild={guild} /> : <HomeMain />}</ErrorBoundary></main>
         <ErrorBoundary area="right"><RightPanel /></ErrorBoundary>
-        {guild && !rightPanel && <ErrorBoundary area="members" resetKey={guild.id}><MemberList guild={guild} /></ErrorBoundary>}
+        {guild && !rightPanel && layout.members && <ErrorBoundary area="members" resetKey={guild.id}><MemberList guild={guild} /></ErrorBoundary>}
       </div>
 
       <CreateGuildModal open={modal === 'create'} onClose={() => setModal(null)} onCreated={(g) => selectGuild(g.id)} />

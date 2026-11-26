@@ -47,6 +47,10 @@ export interface Prefs {
   showOwnCamera: boolean;
   /** the last version whose "What's new" you've seen */
   seenVersion: string;
+  /** layout: hide the server rail / channel sidebar / member list */
+  hideRail: boolean;
+  hideSidebar: boolean;
+  hideMembers: boolean;
 }
 
 const DEFAULTS: Prefs = {
@@ -55,7 +59,7 @@ const DEFAULTS: Prefs = {
   inputMode: 'vad', ptt: { kind: 'key', code: 'Backquote' }, pttReleaseMs: 200, userVolumes: {}, localMutes: {}, mic: {},
   streamRes: 1080, streamFps: 30, streamMode: 'custom', streamAudio: true,
   echoCancellation: true, rawMic: false, autoGain: false, outputVolume: 100, soundVolume: 70, mutedSounds: [], closeToTray: true, notifications: true,
-  shareActivity: true, customGames: {}, hiddenGames: [], hideMutedChannels: false, collapsed: {}, showNonVideo: true, showOwnCamera: true, seenVersion: '',
+  shareActivity: true, customGames: {}, hiddenGames: [], hideMutedChannels: false, collapsed: {}, showNonVideo: true, showOwnCamera: true, seenVersion: '', hideRail: false, hideSidebar: false, hideMembers: false,
 };
 const KEY = 'mncord.prefs';
 

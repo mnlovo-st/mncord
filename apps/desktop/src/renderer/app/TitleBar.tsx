@@ -1,7 +1,8 @@
 // Discord-style top bar (Windows): back / forward on the left, where you are in the middle, inbox + help on
 // the right next to Windows' own caption buttons. The empty parts drag the window.
 import type { Message } from '@mncord/shared';
-import { ArrowLeft, ArrowRight, AtSign, CircleHelp, Inbox, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRight, AtSign, CircleHelp, Inbox, PanelLeft, PanelLeftClose, Users } from 'lucide-react';
+import { setPrefs, usePrefs } from './prefs';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { create } from 'zustand';
@@ -119,13 +120,36 @@ function InboxButton() {
   );
 }
 
+/** show / hide the server list, the channel list and the member list (Ctrl+Alt+1 / 2 / 3) */
+function LayoutButtons() {
+  const { t } = useTranslation();
+  const p = usePrefs();
+  const btn = (on: boolean) => `grid size-7 place-items-center rounded-sm hover:bg-surface-hover [-webkit-app-region:no-drag] ${on ? 'text-muted hover:text-text' : 'bg-surface-selected text-text'}`;
+  return (
+    <>
+      <button type="button" aria-label={t('layout.rail')} title={`${t('layout.rail')} (Ctrl+Alt+1)`} aria-pressed={p.hideRail} onClick={() => setPrefs({ hideRail: !p.hideRail })} className={btn(!p.hideRail)}><PanelLeft className="size-[18px]" /></button>
+      <button type="button" aria-label={t('layout.sidebar')} title={`${t('layout.sidebar')} (Ctrl+Alt+2)`} aria-pressed={p.hideSidebar} onClick={() => setPrefs({ hideSidebar: !p.hideSidebar })} className={btn(!p.hideSidebar)}><PanelLeftClose className="size-[18px]" /></button>
+      <button type="button" aria-label={t('layout.members')} title={`${t('layout.members')} (Ctrl+Alt+3)`} aria-pressed={p.hideMembers} onClick={() => setPrefs({ hideMembers: !p.hideMembers })} className={btn(!p.hideMembers)}><Users className="size-[18px]" /></button>
+    </>
+  );
+}
+addEventListener('keydown', (e) => {
+  if (!e.ctrlKey || !e.altKey) return;
+  const p = usePrefs.getState();
+  if (e.code === 'Digit1') setPrefs({ hideRail: !p.hideRail });
+  else if (e.code === 'Digit2') setPrefs({ hideSidebar: !p.hideSidebar });
+  else if (e.code === 'Digit3') setPrefs({ hideMembers: !p.hideMembers });
+  else return;
+  e.preventDefault();
+});
+
 export function TitleBar({ app }: { app: boolean }) {
   const { t } = useTranslation();
   const canBack = useHistory((h) => h.back.length > 0);
   const canFwd = useHistory((h) => h.fwd.length > 0);
   return (
     <div dir="ltr" className="fixed inset-x-0 top-0 z-[60] flex h-[var(--titlebar-h)] items-center bg-bg-deep pe-[146px] ps-2 text-sm [-webkit-app-region:drag]">
-      <div className="flex w-[200px] items-center gap-1">
+      <div className="flex w-[300px] items-center gap-1">
         {app ? (
           <>
             <button type="button" aria-label={t('titlebar.back')} disabled={!canBack} onClick={goBack} className="grid size-7 place-items-center rounded-sm text-muted hover:bg-surface-hover hover:text-text disabled:pointer-events-none disabled:opacity-30 [-webkit-app-region:no-drag]"><ArrowLeft className="size-4" /></button>
@@ -136,7 +160,8 @@ export function TitleBar({ app }: { app: boolean }) {
         )}
       </div>
       <div className="flex min-w-0 flex-1 items-center justify-center gap-2 font-semibold text-text">{app ? <Where /> : null}</div>
-      <div className="flex w-[200px] items-center justify-end gap-1">
+      <div className="flex w-[300px] items-center justify-end gap-1">
+        {app && <LayoutButtons />}
         {app && <InboxButton />}
         <a href="https://t.me/bscoolvi" target="_blank" rel="noreferrer" aria-label={t('titlebar.help')} title={t('titlebar.help')} className="grid size-7 place-items-center rounded-sm text-muted hover:bg-surface-hover hover:text-text [-webkit-app-region:no-drag]"><CircleHelp className="size-[18px]" /></a>
       </div>

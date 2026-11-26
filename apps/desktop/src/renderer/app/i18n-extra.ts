@@ -74,6 +74,7 @@ export const EN_EXTRA: Dict = {
     nameStyle: { _: 'Display name style', aurora: 'Aurora', sunset: 'Sunset', gold: 'Gold', neon: 'Neon', ocean: 'Ocean', candy: 'Candy', chrome: 'Chrome' },
     nameplate: { _: 'Nameplate', aurora: 'Aurora', sunset: 'Sunset', ocean: 'Ocean', ember: 'Ember', galaxy: 'Galaxy', forest: 'Forest' },
   },
+  layout: { rail: 'Show / hide servers', sidebar: 'Show / hide channels', members: 'Show / hide members' },
   crop: { title: 'Edit image', apply: 'Apply', zoom: 'Zoom', working: 'Saving…', hint: 'Drag to move · scroll or use the slider to zoom' },
   update: {
     downloading: 'Downloading an update', readyTitle: 'Update ready', readyShort: 'Restart to update', whatsNew: 'What’s new', later: 'Later', gotIt: 'Nice!',
@@ -154,6 +155,7 @@ export const AR_EXTRA: Dict = {
     nameStyle: { _: 'ستايل الاسم', aurora: 'شفق', sunset: 'غروب', gold: 'ذهبي', neon: 'نيون', ocean: 'محيط', candy: 'حلاوة', chrome: 'كروم' },
     nameplate: { _: 'خلفية الاسم', aurora: 'شفق', sunset: 'غروب', ocean: 'محيط', ember: 'جمر', galaxy: 'مجرة', forest: 'غابة' },
   },
+  layout: { rail: 'إظهار / إخفاء السيرفرات', sidebar: 'إظهار / إخفاء الرومات', members: 'إظهار / إخفاء الأعضاء' },
   crop: { title: 'تعديل الصورة', apply: 'تطبيق', zoom: 'تكبير', working: 'جاري الحفظ…', hint: 'اسحب للتحريك · استخدم العجلة أو الشريط للتكبير' },
   update: {
     downloading: 'جاري تحميل التحديث', readyTitle: 'التحديث جاهز', readyShort: 'أعد التشغيل للتحديث', whatsNew: 'شو الجديد', later: 'بعدين', gotIt: 'حلو!',

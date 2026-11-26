@@ -17,6 +17,7 @@ import {
   rtcUsers,
   saveUsage,
   trackName,
+  forgetPullsOf,
   videoAllowed,
   streamCap,
   type RtcUser,
@@ -35,7 +36,7 @@ function allowedSources(perms: bigint, serverMute: boolean): MediaSource[] {
 }
 
 function broadcastTracks(u: RtcUser) {
-  hubRef?.dispatchToUsers(hubRef.voiceUsersIn(u.channelId), { t: 'RTC_TRACKS', d: { channelId: u.channelId, userId: u.userId, sources: [...u.published.keys()] } });
+  hubRef?.dispatchToUsers(hubRef.voiceUsersIn(u.channelId), { t: 'RTC_TRACKS', d: { channelId: u.channelId, userId: u.userId, sources: [...u.published.keys()], mids: Object.fromEntries(u.published) } });
 }
 
 /** Removes someone's media from the call (leave, kick, lost permission). */
@@ -148,7 +149,10 @@ export function voiceRoutes(app: App, db: Db, hub: Hub) {
     const allowed = allowedSources(cp.perms, serverMute);
     for (const t of input.tracks) if (!allowed.includes(t.source)) throw forbidden(t.source === 'mic' && serverMute ? 'server_muted' : 'missing_permission');
     const res = await cfCall(() => cfApi.push(u.sessionId, input.sessionDescription, input.tracks.map((t) => ({ mid: t.mid, trackName: trackName(req.userId, t.source) }))));
-    for (const t of input.tracks) u.published.set(t.source, t.mid);
+    for (const t of input.tracks) {
+      if (u.published.has(t.source)) forgetPullsOf(req.userId, t.source); // republish: old pulls are dead
+      u.published.set(t.source, t.mid);
+    }
     broadcastTracks(u);
     return { sessionDescription: res.sessionDescription };
   });
@@ -159,15 +163,16 @@ export function voiceRoutes(app: App, db: Db, hub: Hub) {
     const { cp, serverDeaf } = await voiceAccess(req.params.id, req.userId);
     const u = mine(req.userId, cp.channel.id);
     if (serverDeaf) throw forbidden('server_deafened');
-    const wanted: { sessionId: string; trackName: string; key: string; bps: number }[] = [];
+    const wanted: { sessionId: string; trackName: string; key: string; bps: number; pubMid: string }[] = [];
     for (const t of input.tracks) {
       const pub = rtcUsers.get(t.userId);
       if (!pub || pub.channelId !== cp.channel.id || !pub.published.has(t.source)) throw notFound('track_not_found');
       if (VIDEO.includes(t.source) && !videoAllowed()) throw new HttpError(503, 'rtc_quota');
       if (t.source === 'mic' && !audioAllowed()) throw new HttpError(503, 'rtc_quota');
       const key = `${t.userId}:${t.source}`;
-      if (u.pulls.has(key)) continue;
-      wanted.push({ sessionId: pub.sessionId, trackName: trackName(t.userId, t.source), key, bps: maxBps(t.source) });
+      const pubMid = pub.published.get(t.source)!;
+      if (u.pulls.get(key)?.pubMid === pubMid) continue; // already receiving this exact publish
+      wanted.push({ sessionId: pub.sessionId, trackName: trackName(t.userId, t.source), key, bps: maxBps(t.source), pubMid });
     }
     if (!wanted.length) return { tracks: [] };
     const res = await cfCall(() => cfApi.pull(u.sessionId, wanted.map(({ sessionId, trackName: n }) => ({ sessionId, trackName: n }))));
@@ -175,9 +180,11 @@ export function voiceRoutes(app: App, db: Db, hub: Hub) {
     for (const r of res.tracks ?? []) {
       const w = wanted.find((x) => x.trackName === r.trackName);
       if (!w || !r.mid || r.errorCode) continue;
-      u.pulls.set(w.key, { mid: r.mid, bps: w.bps, since: Date.now() });
+      u.pulls.set(w.key, { mid: r.mid, bps: w.bps, since: Date.now(), pubMid: w.pubMid });
       const [userId, source] = w.key.split(':') as [string, MediaSource];
       tracks.push({ userId, source, mid: r.mid });
+      // Go Live: the streamer hears that someone started watching
+      if (source === 'screen') hub.dispatchToUser(userId, { t: 'STREAM_VIEWER', d: { channelId: cp.channel.id, userId: req.userId, watching: true } });
     }
     return { sessionDescription: res.sessionDescription, requiresImmediateRenegotiation: res.requiresImmediateRenegotiation ?? !!res.sessionDescription, tracks };
   });
@@ -196,10 +203,19 @@ export function voiceRoutes(app: App, db: Db, hub: Hub) {
     const owned = new Set([...u.published.values(), ...[...u.pulls.values()].map((p) => p.mid)]);
     if (input.mids.some((m) => !owned.has(m))) throw forbidden('not_your_track');
     const res = await cfCall(() => cfApi.close(u.sessionId, input.mids, input.sessionDescription));
-    for (const s of input.unpublish) u.published.delete(s);
+    for (const s of input.unpublish) {
+      u.published.delete(s);
+      forgetPullsOf(req.userId, s);
+    }
     for (const [k, p] of [...u.pulls]) if (input.mids.includes(p.mid)) u.pulls.delete(k);
     if (input.unpublish.length) broadcastTracks(u);
     return { sessionDescription: res.sessionDescription };
+  });
+
+  /** what everyone in your call is publishing right now (the app uses it to heal a missed update) */
+  app.get('/voice/:id/participants', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (req) => {
+    mine(req.userId, req.params.id);
+    return participants(req.params.id).filter((p) => p.userId !== req.userId);
   });
 
   app.delete('/voice/:id/session', async (req, reply) => {

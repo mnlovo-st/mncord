@@ -47,7 +47,7 @@ const getV = useVoice.getState;
 
 /** Video tracks to render (remote and local) + what each person is publishing (to offer "Watch stream"). */
 export interface MediaTiles { camera?: MediaStreamTrack; screen?: MediaStreamTrack }
-export const useMedia = create<{ tiles: Record<string, MediaTiles>; available: Record<string, MediaSource[]> }>(() => ({ tiles: {}, available: {} }));
+export const useMedia = create<{ tiles: Record<string, MediaTiles>; available: Record<string, MediaSource[]>; gens: Record<string, Partial<Record<MediaSource, string>>> }>(() => ({ tiles: {}, available: {}, gens: {} }));
 const setTile = (userId: string, kind: keyof MediaTiles, track: MediaStreamTrack | undefined) =>
   useMedia.setState((s) => {
     const cur = { ...s.tiles[userId], [kind]: track };
@@ -90,6 +90,7 @@ function audioCtx() {
 function playRemote(key: string, userId: string, track: MediaStreamTrack) {
   stopRemote(key);
   const ctx = audioCtx();
+  if (ctx.state !== 'running') void ctx.resume().catch(() => {});
   const stream = new MediaStream([track]);
   // Chromium only starts pulling remote WebRTC audio into Web Audio when an element also consumes the stream
   const el = new Audio();
@@ -177,11 +178,11 @@ async function reopenMic() {
   const old = mic;
   try {
     const next = await openMic();
-    await e.unpublish('mic');
-    old.destroy();
     mic = next;
     syncMic();
-    await e.publish(next.track, 'mic', micPublishOpts(lastBitrate));
+    // swap in place: no renegotiation, so nobody loses your voice; publish only if we weren't sending yet
+    if (!(await e.replaceTrack('mic', next.track))) await e.publish(next.track, 'mic', micPublishOpts(lastBitrate));
+    old.destroy();
   } catch (err) {
     console.warn('[voice] could not switch the microphone', err);
   }
@@ -263,28 +264,32 @@ usePrefs.subscribe((s, prev) => {
 
 /** Auto-subscribe: everyone's mic and camera. Screen shares only when you press "Watch". */
 const AUTO: MediaSource[] = ['mic', 'camera'];
-async function syncSubscriptions(userId: string, sources: MediaSource[]) {
+async function syncSubscriptions(userId: string, sources: MediaSource[], mids?: Partial<Record<MediaSource, string>>) {
   const e = engine;
   if (!e || userId === getApp().me?.id) return;
-  useMedia.setState((s) => ({ available: { ...s.available, [userId]: sources } }));
+  const wasWatching = !!useMedia.getState().tiles[userId]?.screen;
+  useMedia.setState((s) => ({ available: { ...s.available, [userId]: sources }, gens: { ...s.gens, [userId]: mids ?? {} } }));
   e.forgetUser(userId, sources); // tracks they stopped
-  const want = sources.filter((s) => AUTO.includes(s) && !(s === 'camera' && !getV().videoAllowed)).map((source) => ({ userId, source }));
+  e.dropStale(userId, mids); // tracks they republished
+  const want: { userId: string; source: MediaSource; gen?: string }[] = sources.filter((s) => AUTO.includes(s) && !(s === 'camera' && !getV().videoAllowed)).map((source) => ({ userId, source, gen: mids?.[source] }));
+  // you were watching their stream and they restarted it: keep watching
+  if (wasWatching && !useMedia.getState().tiles[userId]?.screen) for (const s of ['screen', 'screen_audio'] as MediaSource[]) if (sources.includes(s)) want.push({ userId, source: s, gen: mids?.[s] });
   if (want.length && !getV().serverDeafened) await e.subscribe(want).catch((err) => console.warn('[voice] subscribe failed', err));
 }
 
 let joinSeq = 0;
 let rejoinTries = 0;
 /** batch: one negotiation for everyone already in the room instead of one per person */
-async function subscribeAll(e: RtcEngine, participants: { userId: string; sources: MediaSource[] }[]) {
+async function subscribeAll(e: RtcEngine, participants: { userId: string; sources: MediaSource[]; mids?: Partial<Record<MediaSource, string>> }[]) {
   const me = getApp().me?.id;
-  const want: { userId: string; source: MediaSource }[] = [];
+  const want: { userId: string; source: MediaSource; gen?: string }[] = [];
   const available = { ...useMedia.getState().available };
   for (const p of participants) {
     if (p.userId === me) continue;
     available[p.userId] = p.sources;
-    for (const s of p.sources) if (AUTO.includes(s) && !(s === 'camera' && !getV().videoAllowed)) want.push({ userId: p.userId, source: s });
+    for (const s of p.sources) if (AUTO.includes(s) && !(s === 'camera' && !getV().videoAllowed)) want.push({ userId: p.userId, source: s, gen: p.mids?.[s] });
   }
-  useMedia.setState({ available });
+  useMedia.setState((st) => ({ available, gens: { ...st.gens, ...Object.fromEntries(participants.map((p) => [p.userId, p.mids ?? {}])) } }));
   if (want.length && !getV().serverDeafened) await e.subscribe(want).catch((err) => console.warn('[voice] subscribe failed', err));
 }
 
@@ -292,6 +297,7 @@ export async function joinVoice(guildId: string | null, channelId: string) {
   const cur = getV();
   if (cur.channelId === channelId && cur.status !== 'error') return; // already here / already joining (double click)
   const seq = ++joinSeq;
+  void audioCtx().resume().catch(() => {}); // start audio inside the click, so incoming voices are never held back by autoplay rules
   const stale = () => seq !== joinSeq;
   const switching = !!cur.channelId;
   // the UI moves right away; the old call is torn down in the background
@@ -388,7 +394,7 @@ async function teardown(announce: boolean) {
   for (const k of [...remoteAudio.keys()]) stopRemote(k);
   const e = engine;
   engine = null;
-  useMedia.setState({ tiles: {}, available: {} });
+  useMedia.setState({ tiles: {}, available: {}, gens: {} });
   setApp({ speaking: {} });
   if (announce) {
     const v = getV();
@@ -416,12 +422,12 @@ export function onVoiceMove(d: { guildId: string | null; channelId: string }) {
 }
 
 /** Gateway: someone in your call started/stopped publishing. */
-export function onRtcTracks(d: { channelId: string; userId: string; sources: MediaSource[] }) {
+export function onRtcTracks(d: { channelId: string; userId: string; sources: MediaSource[]; mids?: Partial<Record<MediaSource, string>> }) {
   if (d.channelId !== getV().channelId) return;
   const before = useMedia.getState().available[d.userId] ?? [];
   if (d.sources.includes('screen') && !before.includes('screen')) playSound('stream_start');
   if (!d.sources.includes('screen') && before.includes('screen')) playSound('stream_stop');
-  void syncSubscriptions(d.userId, d.sources);
+  void syncSubscriptions(d.userId, d.sources, d.mids);
 }
 
 /** Gateway: a moderator server-muted/deafened you or your permissions changed. */
@@ -536,7 +542,8 @@ export async function watchStream(userId: string) {
   const e = engine;
   if (!e) return;
   const avail = useMedia.getState().available[userId] ?? [];
-  const want = (['screen', 'screen_audio'] as MediaSource[]).filter((s) => avail.includes(s)).map((source) => ({ userId, source }));
+  const gen = useMedia.getState().gens[userId] ?? {};
+  const want = (['screen', 'screen_audio'] as MediaSource[]).filter((s) => avail.includes(s)).map((source) => ({ userId, source, gen: gen[source] }));
   if (want.length) await e.subscribe(want);
 }
 export async function stopWatching(userId: string) {
@@ -545,6 +552,40 @@ export async function stopWatching(userId: string) {
   await e.unsubscribe(userId, 'screen');
   await e.unsubscribe(userId, 'screen_audio');
 }
+
+/**
+ * Self-healing: every 8 s, if someone in your call has a mic/stream we aren't receiving (a missed update,
+ * a republished track, a network blip), ask the server what they publish and subscribe again. Costs no
+ * requests while everything is fine.
+ */
+let healStrikes = 0;
+setInterval(() => {
+  const e = engine;
+  const v = getV();
+  if (!e || v.status !== 'connected' || !v.channelId || v.serverDeafened) return;
+  const me = getApp().me?.id;
+  const inCall = Object.values(getApp().voice).filter((x) => x.channelId === v.channelId && x.userId !== me);
+  const media = useMedia.getState();
+  const missing = inCall.some((x) => {
+    const avail = media.available[x.userId];
+    if (!avail) return true; // never heard what they publish
+    if (avail.includes('mic') && !e.isSubscribed(x.userId, 'mic')) return true;
+    if (avail.includes('mic') && ![...remoteAudio.values()].some((r) => r.userId === x.userId)) return true; // subscribed but no audio arrived
+    return false;
+  });
+  // only act when it's still wrong on the next check (a fresh subscription needs a moment to deliver audio)
+  healStrikes = missing ? healStrikes + 1 : 0;
+  if (healStrikes < 2) return;
+  healStrikes = 0;
+  void api<{ userId: string; sources: MediaSource[]; mids?: Partial<Record<MediaSource, string>> }[]>('GET', `/voice/${v.channelId}/participants`)
+    .then((list) => {
+      for (const p of list) {
+        if (p.sources.includes('mic') && e.isSubscribed(p.userId, 'mic') && ![...remoteAudio.values()].some((r) => r.userId === p.userId)) void e.unsubscribe(p.userId, 'mic'); // dead copy: drop it on the server too, then pull fresh
+        void syncSubscriptions(p.userId, p.sources, p.mids);
+      }
+    })
+    .catch(() => {});
+}, 8000);
 
 /** ping to the voice server, refreshed every 3 s while in a call */
 export const usePing = create<{ ms: number | null }>(() => ({ ms: null }));
