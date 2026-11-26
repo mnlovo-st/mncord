@@ -7,7 +7,7 @@ export const CHANGELOG: Release[] = [
     date: '2026-11-26',
     en: [
       'Fixed: changing mic settings in a call no longer makes your voice disappear',
-      'Fixed: you always see a friend's screen share, even when they restart it',
+      "Fixed: you always see your friend's screen share, even when they restart it",
       'Fixed: private calls, and calls heal themselves if someone stops being heard',
       'Fullscreen works for screen shares',
       'Everyone hears the join and leave sounds, and you hear when someone starts watching your stream',
