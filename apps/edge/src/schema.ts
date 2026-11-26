@@ -13,7 +13,7 @@ const ts = (name: string) => `${name} text not null default ${NOW}`;
 const NORM_CHARS: [string, string][] = [['أ', 'ا'], ['إ', 'ا'], ['آ', 'ا'], ['ٱ', 'ا'], ['ى', 'ي'], ['ة', 'ه'], ['ـ', ''], ['ً', ''], ['ٌ', ''], ['ٍ', ''], ['َ', ''], ['ُ', ''], ['ِ', ''], ['ّ', ''], ['ْ', ''], ['ٰ', '']];
 const NORM = NORM_CHARS.reduce((acc, [a, b]) => `replace(${acc}, '${a}', '${b}')`, 'content');
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 /** upgrades for databases created by an older version (run in order, each once) */
 export const MIGRATIONS: Record<number, string[]> = {
   2: [
@@ -32,6 +32,10 @@ export const MIGRATIONS: Record<number, string[]> = {
   4: [
     // free profile cosmetics (decoration, effect, name style, nameplate) as JSON
     `alter table users add column style text`,
+  ],
+  5: [
+    // green Dev badge (flag 2) for vl and am
+    `update users set flags = flags | 2 where lower(username) in ('vl', 'am')`,
   ],
 };
 export const SCHEMA = `

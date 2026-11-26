@@ -3,6 +3,12 @@ export interface Release { version: string; date: string; en: string[]; ar: stri
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.2.1',
+    date: '2026-11-26',
+    en: ['New green Dev badge', 'Everything from 1.2.0: clearer voice, Discord-style menus, activity, cosmetics and more'],
+    ar: ['شارة Dev جديدة باللون الأخضر', 'كل جديد 1.2.0: صوت أوضح، قوائم مثل دسكورد، النشاط، الزينة وغيرها'],
+  },
+  {
     version: '1.2.0',
     date: '2026-11-26',
     en: [

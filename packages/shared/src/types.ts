@@ -25,6 +25,8 @@ export interface Activity {
   startedAt: number;
 }
 export const USER_FLAG_DEV = 1;
+/** green Dev badge */
+export const USER_FLAG_DEV_GREEN = 2;
 export interface SelfUser extends User {
   /** profile banner image (public picture id) */
   bannerKey?: string | null;
