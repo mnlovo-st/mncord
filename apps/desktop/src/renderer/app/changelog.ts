@@ -3,6 +3,12 @@ export interface Release { version: string; date: string; en: string[]; ar: stri
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.2.3',
+    date: '2026-11-28',
+    en: ['Fixed: tooltips and menus now appear exactly next to what you point at', 'Join a server by typing its name (owners can switch this off in Server Settings)'],
+    ar: ['انحلت: التلميحات والقوائم تطلع بالضبط جنب الشي اللي تأشر عليه', 'تقدر تنضم لسيرفر بكتابة اسمه (المالك يقدر يطفيها من إعدادات السيرفر)'],
+  },
+  {
     version: '1.2.2',
     date: '2026-11-26',
     en: [

@@ -7,7 +7,7 @@ import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Modal } from '../../ui/Modal';
 import { cn } from '../../ui/cn';
-import { api, ApiError } from '../api';
+import { api, ApiError, avatarUrl } from '../api';
 import { errorText } from '../i18n';
 import { firstTextChannel, upsertGuild, useStore } from '../store';
 
@@ -86,15 +86,42 @@ export function JoinGuildModal({ open, onClose, onJoined }: { open: boolean; onC
   const { t } = useTranslation();
   const [value, setValue] = useState('');
   const [preview, setPreview] = useState<Invite | null>(null);
+  // typing a server's name finds it (servers that allow being found)
+  const [found, setFound] = useState<{ id: string; name: string; iconKey: string | null; memberCount: number; joined: boolean }[] | null>(null);
+  const [joining, setJoining] = useState<string | null>(null);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (open) {
       setValue('');
       setPreview(null);
+      setFound(null);
       setError(undefined);
     }
   }, [open]);
+  useEffect(() => {
+    const q = value.trim();
+    setFound(null);
+    if (q.length < 2 || /^https?:|\//.test(q)) return;
+    const id = setTimeout(() => {
+      api<NonNullable<typeof found>>('GET', `/guilds/search?q=${encodeURIComponent(q)}`).then(setFound, () => setFound([]));
+    }, 300);
+    return () => clearTimeout(id);
+  }, [value]);
+  async function joinById(id: string) {
+    setJoining(id);
+    setError(undefined);
+    try {
+      const g = await api<Guild>('POST', `/guilds/${id}/join`);
+      upsertGuild(g);
+      onJoined(g);
+      onClose();
+    } catch (e) {
+      setError(errorText((e as ApiError).code));
+    } finally {
+      setJoining(null);
+    }
+  }
   useEffect(() => {
     const code = parseCode(value);
     setPreview(null);
@@ -132,6 +159,22 @@ export function JoinGuildModal({ open, onClose, onJoined }: { open: boolean; onC
       footer={<><Button variant="ghost" onClick={onClose}>{t('common.cancel')}</Button><Button loading={busy} disabled={!parseCode(value)} onClick={() => void join()}>{t('joinGuild.join')}</Button></>}
     >
       <Input label={t('joinGuild.code')} value={value} onChange={(e) => setValue(e.target.value)} error={error} dir="ltr" autoFocus onKeyDown={(e) => e.key === 'Enter' && void join()} />
+      {found && found.length > 0 && !preview && (
+        <div className="anim-fade mt-3 flex max-h-64 flex-col gap-1 overflow-y-auto">
+          <p className="text-2xs font-bold uppercase tracking-wide text-muted">{t('joinGuild.found')}</p>
+          {found.map((g) => (
+            <div key={g.id} className="flex items-center gap-3 rounded-md bg-surface p-2.5">
+              {g.iconKey ? <img src={avatarUrl(g.iconKey)} alt="" className="size-10 rounded-guild object-cover" /> : <div className="grid size-10 place-items-center rounded-guild bg-accent font-display font-bold text-on-accent">{[...g.name][0]}</div>}
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold" dir="auto">{g.name}</p>
+                <p className="text-xs text-muted">{t('joinGuild.preview', { count: g.memberCount })}</p>
+              </div>
+              <Button size="sm" variant={g.joined ? 'secondary' : 'primary'} loading={joining === g.id} onClick={() => void joinById(g.id)}>{g.joined ? t('joinGuild.open') : t('joinGuild.joinShort')}</Button>
+            </div>
+          ))}
+        </div>
+      )}
+      {found && found.length === 0 && !preview && value.trim().length >= 2 && parseCode(value).length < 8 && <p className="mt-3 text-sm text-muted">{t('joinGuild.none')}</p>}
       {preview && (
         <div className="anim-fade mt-3 flex items-center gap-3 rounded-md bg-surface p-3">
           <div className="grid size-12 place-items-center rounded-guild bg-accent font-display font-bold text-on-accent">{[...preview.guild.name][0]}</div>

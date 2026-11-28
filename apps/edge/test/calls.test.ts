@@ -111,4 +111,18 @@ describe('calls', () => {
     gA.ws.close();
     gB.ws.close();
   });
+
+  it('find a server by name and join it; owners can turn it off', async () => {
+    const r = await api<{ id: string; name: string; joined: boolean }[]>('GET', '/guilds/search?q=rtc2', undefined, U.callee!.t);
+    expect(r.body.find((g) => g.id === g.id && g.name === 'rtc2')?.joined).toBe(true);
+    const other = (await api<{ id: string }>('POST', '/guilds', { name: 'Hidden Gems', template: 'gaming' }, U.caller!.t)).body;
+    const found = await api<{ id: string; joined: boolean }[]>('GET', '/guilds/search?q=hidden%20g', undefined, U.callee!.t);
+    expect(found.body.map((g) => g.id)).toContain(other.id);
+    expect((await api<{ id: string }>('POST', `/guilds/${other.id}/join`, undefined, U.callee!.t)).body.id).toBe(other.id);
+    // owner switches it off: no longer listed or joinable
+    await api('PATCH', `/guilds/${other.id}`, { isDiscoverable: false }, U.caller!.t);
+    expect((await api<unknown[]>('GET', '/guilds/search?q=hidden', undefined, U.callee!.t)).body.length).toBe(0);
+    expect((await api('POST', `/guilds/${other.id}/join`, undefined, U.caller!.t)).status).toBeLessThan(500);
+    expect((await api('GET', '/guilds/search?q=%25', undefined, U.callee!.t)).status).toBe(200);
+  });
 });

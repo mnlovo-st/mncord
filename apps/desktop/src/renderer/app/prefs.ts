@@ -123,7 +123,13 @@ export function apply() {
   }
   el.dataset.reducedMotion = String(p.reducedMotion);
   el.dataset.density = p.density;
-  // tokens are px-based, so scale the whole UI the way browser zoom does
-  (document.body?.style as CSSStyleDeclaration & { zoom: string }).zoom = String(p.fontScale / 100);
+  // UI size = the browser's own zoom (a CSS zoom on <body> threw every tooltip and menu off its anchor)
+  const z = p.fontScale / 100;
+  if (window.mncord?.window.setZoom) {
+    window.mncord.window.setZoom(z);
+    (document.body?.style as CSSStyleDeclaration & { zoom: string }).zoom = '';
+    // the native window buttons stay 32 px tall whatever the zoom: keep our title bar the same height
+    el.style.setProperty('--titlebar-h', el.dataset.titlebar === 'true' ? `${32 / z}px` : '0px');
+  } else (document.body?.style as CSSStyleDeclaration & { zoom: string }).zoom = String(z);
 }
 apply();

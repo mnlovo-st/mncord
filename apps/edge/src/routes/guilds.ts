@@ -31,6 +31,7 @@ async function createGuild(q: Queryable, ownerId: string, name: string, template
   const guildId = g.rows[0]!.id;
   await q.query(`insert into roles (guild_id, name, permissions, is_everyone, position) values ($1, '@everyone', $2::bigint, true, 0)`, [guildId, DEFAULT_EVERYONE.toString()]);
   await q.query(`insert into guild_members (guild_id, user_id) values ($1, $2)`, [guildId, ownerId]);
+  await q.query(`update guilds set is_discoverable = 1 where id = $1`, [guildId]);
   const t = TEMPLATES[template][locale];
   const textCat = await q.query<{ id: string }>(`insert into channels (guild_id, type, name, position) values ($1, 'category', $2, 0) returning id`, [guildId, t.text]);
   const voiceCat = await q.query<{ id: string }>(`insert into channels (guild_id, type, name, position) values ($1, 'category', $2, 1) returning id`, [guildId, t.voice]);
@@ -94,6 +95,46 @@ export function guildRoutes(app: App, db: Db, hub: Hub) {
       code, cp.channel.guildId, cp.channel.id, req.userId, input.maxUses, expires,
     ]);
     return reply.status(201).send({ code, expiresAt: expires?.toISOString() ?? null });
+  });
+
+  // ── find a server by its name (only servers that allow it), and join it directly
+  app.get('/guilds/search', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (req) => {
+    const q = String((req.query as { q?: string }).q ?? '').trim().slice(0, 100);
+    if (q.length < 2) return [];
+    const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const { rows } = await db.query<{ id: string; name: string; iconKey: string | null; memberCount: number; joined: number }>(
+      `select g.id, g.name, g.icon_key as "iconKey",
+              (select count(*) from guild_members m where m.guild_id = g.id) as "memberCount",
+              exists(select 1 from guild_members m where m.guild_id = g.id and m.user_id = $2) as joined
+         from guilds g
+        where g.is_discoverable = 1 and g.name like $1 escape '\\'
+          and not exists(select 1 from bans b where b.guild_id = g.id and b.user_id = $2)
+        order by (lower(g.name) = lower($3)) desc, "memberCount" desc limit 20`,
+      [like, req.userId, q],
+    );
+    return rows.map((r) => ({ ...r, memberCount: Number(r.memberCount), joined: !!r.joined }));
+  });
+
+  app.post('/guilds/:id/join', { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } }, async (req) => {
+    if (!/^[0-9a-f-]{36}$/.test(req.params.id)) throw notFound();
+    const guildId = await db.tx(async (q) => {
+      const g = await q.query<{ open: number; sys: string | null }>(`select is_discoverable as open, system_channel_id as sys from guilds where id = $1`, [req.params.id]);
+      if (!g.rows[0] || !g.rows[0].open) throw notFound('guild_not_found');
+      const banned = await q.query(`select 1 from bans where guild_id = $1 and user_id = $2`, [req.params.id, req.userId]);
+      if (banned.rows.length) throw new HttpError(403, 'banned');
+      const already = await q.query(`select 1 from guild_members where guild_id = $1 and user_id = $2`, [req.params.id, req.userId]);
+      if (already.rows.length) return req.params.id;
+      await q.query(`insert into guild_members (guild_id, user_id) values ($1, $2)`, [req.params.id, req.userId]);
+      if (g.rows[0].sys) await q.query(`insert into messages (channel_id, author_id, type, content) values ($1, $2, 'system_join', '')`, [g.rows[0].sys, req.userId]);
+      return req.params.id;
+    });
+    const guild = (await guildForUser(db, guildId, req.userId))!;
+    hub.addGuildMember(guildId, req.userId);
+    hub.dispatchToUser(req.userId, { t: 'GUILD_CREATE', d: guild });
+    const me = (await members(db, guildId)).find((m) => m.userId === req.userId);
+    if (me) hub.dispatchToGuild(guildId, { t: 'GUILD_MEMBER_ADD', d: { ...me, guildId } });
+    await hub.broadcastLatestSystemMessage(guildId);
+    return guild;
   });
 
   app.get('/invites/:code', async (req) => {

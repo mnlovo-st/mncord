@@ -75,6 +75,7 @@ export const EN_EXTRA: Dict = {
     nameplate: { _: 'Nameplate', aurora: 'Aurora', sunset: 'Sunset', ocean: 'Ocean', ember: 'Ember', galaxy: 'Galaxy', forest: 'Forest' },
   },
   layout: { rail: 'Show / hide servers', sidebar: 'Show / hide channels', members: 'Show / hide members' },
+  gs: { discoverable: 'Findable by name', discoverableSub: 'People can type the server name in “Join a server” and join without an invite.' },
   crop: { title: 'Edit image', apply: 'Apply', zoom: 'Zoom', working: 'Saving…', hint: 'Drag to move · scroll or use the slider to zoom' },
   update: {
     downloading: 'Downloading an update', readyTitle: 'Update ready', readyShort: 'Restart to update', whatsNew: 'What’s new', later: 'Later', gotIt: 'Nice!',
@@ -156,6 +157,7 @@ export const AR_EXTRA: Dict = {
     nameplate: { _: 'خلفية الاسم', aurora: 'شفق', sunset: 'غروب', ocean: 'محيط', ember: 'جمر', galaxy: 'مجرة', forest: 'غابة' },
   },
   layout: { rail: 'إظهار / إخفاء السيرفرات', sidebar: 'إظهار / إخفاء الرومات', members: 'إظهار / إخفاء الأعضاء' },
+  gs: { discoverable: 'يمكن إيجاده بالاسم', discoverableSub: 'أي شخص يقدر يكتب اسم السيرفر في «الانضمام إلى سيرفر» ويدخل بدون دعوة.' },
   crop: { title: 'تعديل الصورة', apply: 'تطبيق', zoom: 'تكبير', working: 'جاري الحفظ…', hint: 'اسحب للتحريك · استخدم العجلة أو الشريط للتكبير' },
   update: {
     downloading: 'جاري تحميل التحديث', readyTitle: 'التحديث جاهز', readyShort: 'أعد التشغيل للتحديث', whatsNew: 'شو الجديد', later: 'بعدين', gotIt: 'حلو!',

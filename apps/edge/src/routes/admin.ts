@@ -81,7 +81,7 @@ export function adminRoutes(app: App, db: Db, hub: Hub) {
     const input = parse(UpdateGuildInput, req.body);
     const { ctx } = await actor(req.params.id, req.userId, P.MANAGE_GUILD);
     const before = (await db.query<Record<string, unknown>>(
-      `select name, description, icon_key as "iconFileId", system_channel_id as "systemChannelId", verification_level as "verificationLevel", default_notifications as "defaultNotifications", preferred_locale as "preferredLocale" from guilds where id = $1`,
+      `select name, description, icon_key as "iconFileId", system_channel_id as "systemChannelId", verification_level as "verificationLevel", default_notifications as "defaultNotifications", preferred_locale as "preferredLocale", is_discoverable as "isDiscoverable" from guilds where id = $1`,
       [ctx.guild.id],
     )).rows[0]!;
     if (input.iconFileId) {
@@ -92,7 +92,7 @@ export function adminRoutes(app: App, db: Db, hub: Hub) {
       const c = await getChannel(db, input.systemChannelId);
       if (c?.guildId !== ctx.guild.id) throw new HttpError(400, 'invalid_input');
     }
-    const cols = { name: 'name', description: 'description', iconFileId: 'icon_key', systemChannelId: 'system_channel_id', verificationLevel: 'verification_level', defaultNotifications: 'default_notifications', preferredLocale: 'preferred_locale' } as const;
+    const cols = { name: 'name', description: 'description', iconFileId: 'icon_key', systemChannelId: 'system_channel_id', verificationLevel: 'verification_level', defaultNotifications: 'default_notifications', preferredLocale: 'preferred_locale', isDiscoverable: 'is_discoverable' } as const;
     const sets: string[] = [];
     const vals: unknown[] = [ctx.guild.id];
     for (const [k, c] of Object.entries(cols)) {

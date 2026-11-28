@@ -130,6 +130,8 @@ export const UpdateGuildInput = z.object({
   verificationLevel: z.number().int().min(0).max(4).optional(),
   defaultNotifications: z.enum(['all', 'mentions']).optional(),
   preferredLocale: z.enum(['en', 'ar']).optional(),
+  /** people can find and join it by name */
+  isDiscoverable: z.boolean().optional(),
 });
 export const permString = z.string().regex(/^\d{1,20}$/);
 export const CreateRoleInput = z.object({ name: name100.default('new role'), color: z.number().int().min(0).max(0xffffff).default(0), permissions: permString.optional(), hoist: z.boolean().default(false), mentionable: z.boolean().default(false) });

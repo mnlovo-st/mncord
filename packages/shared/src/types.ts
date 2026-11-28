@@ -98,6 +98,8 @@ export interface Guild {
   systemChannelId: string | null;
   verificationLevel: number;
   defaultNotifications: 'all' | 'mentions';
+  /** can be found and joined by name */
+  isDiscoverable?: boolean;
   emojis: GuildEmoji[];
   ownerId: string;
   /** your base permissions in the server (decimal string) */

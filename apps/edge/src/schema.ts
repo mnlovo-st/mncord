@@ -13,7 +13,7 @@ const ts = (name: string) => `${name} text not null default ${NOW}`;
 const NORM_CHARS: [string, string][] = [['أ', 'ا'], ['إ', 'ا'], ['آ', 'ا'], ['ٱ', 'ا'], ['ى', 'ي'], ['ة', 'ه'], ['ـ', ''], ['ً', ''], ['ٌ', ''], ['ٍ', ''], ['َ', ''], ['ُ', ''], ['ِ', ''], ['ّ', ''], ['ْ', ''], ['ٰ', '']];
 const NORM = NORM_CHARS.reduce((acc, [a, b]) => `replace(${acc}, '${a}', '${b}')`, 'content');
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 /** upgrades for databases created by an older version (run in order, each once) */
 export const MIGRATIONS: Record<number, string[]> = {
   2: [
@@ -36,6 +36,10 @@ export const MIGRATIONS: Record<number, string[]> = {
   5: [
     // green Dev badge (flag 2) for vl and am
     `update users set flags = flags | 2 where lower(username) in ('vl', 'am')`,
+  ],
+  6: [
+    // servers can be found by name (owners can switch it off in Server Settings)
+    `update guilds set is_discoverable = 1`,
   ],
 };
 export const SCHEMA = `
@@ -168,7 +172,7 @@ create table if not exists guilds (
   afk_channel_id text references channels(id) on delete set null,
   afk_timeout_s integer not null default 300,
   vanity_code text unique collate nocase,
-  is_discoverable integer not null default 0,
+  is_discoverable integer not null default 1,
   community_enabled integer not null default 0,
   onboarding text not null default '{}',
   preferred_locale text not null default 'en' check (preferred_locale in ('en','ar')),

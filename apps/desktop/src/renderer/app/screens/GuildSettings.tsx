@@ -116,7 +116,7 @@ function Select({ label, value, onChange, options }: { label: string; value: str
 // ── overview
 function Overview({ guild }: { guild: Guild }) {
   const { t } = useTranslation();
-  const init = { name: guild.name, description: guild.description ?? '', systemChannelId: guild.systemChannelId ?? '', defaultNotifications: guild.defaultNotifications };
+  const init = { name: guild.name, description: guild.description ?? '', systemChannelId: guild.systemChannelId ?? '', defaultNotifications: guild.defaultNotifications, isDiscoverable: guild.isDiscoverable !== false };
   const [v, setV] = useState(init);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -127,7 +127,7 @@ function Overview({ guild }: { guild: Guild }) {
     setBusy(true);
     setErr(null);
     try {
-      await api('PATCH', `/guilds/${guild.id}`, { name: v.name, description: v.description || null, systemChannelId: v.systemChannelId || null, defaultNotifications: v.defaultNotifications });
+      await api('PATCH', `/guilds/${guild.id}`, { name: v.name, description: v.description || null, systemChannelId: v.systemChannelId || null, defaultNotifications: v.defaultNotifications, isDiscoverable: v.isDiscoverable });
     } catch (e) {
       setErr(errorText((e as ApiError).code));
     } finally {
@@ -168,6 +168,7 @@ function Overview({ guild }: { guild: Guild }) {
           options={[['', t('gs.none')], ...guild.channels.filter((c) => c.type === 'text').map((c) => [c.id, `#${c.name}`] as [string, string])]} />
         <Select label={t('gs.notifications')} value={v.defaultNotifications} onChange={(x) => setV({ ...v, defaultNotifications: x as 'all' | 'mentions' })}
           options={[['all', t('gs.allMessages')], ['mentions', t('gs.onlyMentions')]]} />
+        <Switch label={t('gs.discoverable')} description={t('gs.discoverableSub')} checked={v.isDiscoverable} onCheckedChange={(x) => setV({ ...v, isDiscoverable: x })} />
         <Err e={err} />
       </div>
       <SaveBar dirty={dirty} busy={busy} onReset={() => setV(init)} onSave={() => void save()} />

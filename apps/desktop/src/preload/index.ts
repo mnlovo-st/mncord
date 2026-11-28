@@ -1,5 +1,5 @@
 // The only bridge between the sandboxed UI and the main process. Keep it small and typed.
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webFrame } from 'electron';
 
 export interface CaptureSource { id: string; name: string; thumbnail: string; icon: string | null }
 
@@ -39,6 +39,8 @@ const api = {
     setCloseToTray: (on: boolean): Promise<void> => ipcRenderer.invoke('win:close-to-tray', on),
     getAutostart: (): Promise<boolean> => ipcRenderer.invoke('win:get-autostart'),
     setAutostart: (on: boolean): Promise<void> => ipcRenderer.invoke('win:set-autostart', on),
+    /** UI size (Appearance): real browser zoom, so popups and tooltips stay where they belong */
+    setZoom: (factor: number) => webFrame.setZoomFactor(Math.min(2, Math.max(0.5, factor))),
   },
   update: {
     onReady: (cb: (version: string) => void) => {

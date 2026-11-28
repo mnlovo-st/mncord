@@ -140,8 +140,8 @@ export async function guildForUser(db: Queryable, guildId: string, userId: strin
     [guildId],
   );
   const count = await db.query<{ n: string | number }>(`select count(*)::int as n from guild_members where guild_id = $1`, [guildId]);
-  const info = await db.query<{ description: string | null; systemChannelId: string | null; verificationLevel: number; defaultNotifications: 'all' | 'mentions' }>(
-    `select description, system_channel_id as "systemChannelId", verification_level as "verificationLevel", default_notifications as "defaultNotifications" from guilds where id = $1`,
+  const info = await db.query<{ description: string | null; systemChannelId: string | null; verificationLevel: number; defaultNotifications: 'all' | 'mentions'; isDiscoverable: number }>(
+    `select description, system_channel_id as "systemChannelId", verification_level as "verificationLevel", default_notifications as "defaultNotifications", is_discoverable as "isDiscoverable" from guilds where id = $1`,
     [guildId],
   );
   const emo = await db.query<{ id: string; name: string; fileId: string; animated: boolean }>(
@@ -158,6 +158,7 @@ export async function guildForUser(db: Queryable, guildId: string, userId: strin
     iconUrl: ctx.guild.iconKey && /^[0-9a-f-]{36}$/.test(ctx.guild.iconKey) ? `${base}/avatars/${ctx.guild.iconKey}` : null,
     description: i?.description ?? null,
     systemChannelId: i?.systemChannelId ?? null,
+    isDiscoverable: !!i?.isDiscoverable,
     verificationLevel: i?.verificationLevel ?? 0,
     defaultNotifications: i?.defaultNotifications ?? 'mentions',
     emojis: emo.rows.map((e) => ({ id: e.id, name: e.name, animated: e.animated, url: `${base}/avatars/${e.fileId}` })),
